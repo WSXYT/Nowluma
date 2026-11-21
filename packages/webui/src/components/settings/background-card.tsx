@@ -5,17 +5,17 @@ import {
     Segmented,
     SettingRow,
     SliderSettingRow,
-    type Opt,
 } from '@/components/settings/settings-controls';
 import { Button } from '@/components/ui/button';
 import { GRADIENT_OPTIONS, type BackgroundType, type useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/i18n';
 import { cn, toColorInputValue } from '@/lib/utils';
 
-const BG_TYPE_OPTIONS: Opt<BackgroundType>[] = [
-    { value: 'none', label: '无' },
-    { value: 'solid', label: '纯色' },
-    { value: 'gradient', label: '渐变' },
-    { value: 'image', label: '图片' },
+const BG_TYPE_OPTIONS: { value: BackgroundType; label: [zh: string, en: string] }[] = [
+    { value: 'none', label: ['无', 'None'] },
+    { value: 'solid', label: ['纯色', 'Solid'] },
+    { value: 'gradient', label: ['渐变', 'Gradient'] },
+    { value: 'image', label: ['图片', 'Image'] },
 ];
 
 export function BackgroundCard({
@@ -29,6 +29,7 @@ export function BackgroundCard({
     uploadBackground: ReturnType<typeof useTheme>['uploadBackground'];
     removeBackground: ReturnType<typeof useTheme>['removeBackground'];
 }) {
+    const t = useT();
     const fileRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -51,7 +52,7 @@ export function BackgroundCard({
         try {
             await uploadBackground(file);
         } catch (ex) {
-            setErr(ex instanceof Error ? ex.message : '上传失败');
+            setErr(ex instanceof Error ? ex.message : t('上传失败', 'Upload failed'));
         } finally {
             setUploading(false);
         }
@@ -64,7 +65,7 @@ export function BackgroundCard({
         try {
             await removeBackground();
         } catch {
-            setErr('删除失败');
+            setErr(t('删除失败', 'Removal failed'));
         } finally {
             setBusy(false);
         }
@@ -72,20 +73,26 @@ export function BackgroundCard({
 
     return (
         <Group
-            title="背景"
+            title={t('背景', 'Background')}
             icon={ImageIcon}
-            description="背景应用于工作区与登录页。"
+            description={t(
+                '背景应用于工作区与登录页。',
+                'The background applies to the workspace and sign-in page.',
+            )}
         >
-            <SettingRow label="背景类型">
+            <SettingRow label={t('背景类型', 'Background type')}>
                 <Segmented
                     value={a.background.type}
-                    options={BG_TYPE_OPTIONS}
+                    options={BG_TYPE_OPTIONS.map(({ value, label }) => ({
+                        value,
+                        label: t(...label),
+                    }))}
                     onChange={(type) => setAppearance({ background: { type } })}
                 />
             </SettingRow>
 
             {a.background.type === 'solid' && (
-                <SettingRow label="背景颜色">
+                <SettingRow label={t('背景颜色', 'Background color')}>
                     <div className="flex items-center gap-3">
                         <label
                             className="relative size-11 cursor-pointer overflow-hidden rounded-[4px] border focus-within:ring-2 focus-within:ring-ring"
@@ -98,7 +105,7 @@ export function BackgroundCard({
                                     setAppearance({ background: { color: e.target.value } })
                                 }
                                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                aria-label="背景颜色"
+                                aria-label={t('背景颜色', 'Background color')}
                             />
                         </label>
                         <span className="font-mono text-sm text-muted-foreground">
@@ -109,10 +116,11 @@ export function BackgroundCard({
             )}
 
             {a.background.type === 'gradient' && (
-                <SettingRow label="渐变预设" layout="stack">
+                <SettingRow label={t('渐变预设', 'Gradient presets')} layout="stack">
                     <div className="flex flex-wrap gap-2">
                         {GRADIENT_OPTIONS.map((g) => {
                             const active = a.background.gradient === g.id;
+                            const label = t(g.label, g.labelEn);
                             return (
                                 <button
                                     key={g.id}
@@ -121,15 +129,21 @@ export function BackgroundCard({
                                     onClick={() =>
                                         setAppearance({ background: { gradient: g.id } })
                                     }
-                                    title={g.label}
-                                    aria-label={g.label}
+                                    title={label}
+                                    aria-label={label}
                                     className={cn(
                                         'inline-flex min-h-11 items-center gap-2 rounded-[4px] border px-3 text-xs transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                        active ? 'border-foreground' : 'border-border hover:bg-muted/40',
+                                        active
+                                            ? 'border-foreground'
+                                            : 'border-border hover:bg-muted/40',
                                     )}
                                 >
-                                    <span aria-hidden="true" className="h-5 w-8 rounded-[2px] border border-border/60" style={{ backgroundImage: g.css }} />
-                                    {g.label}
+                                    <span
+                                        aria-hidden="true"
+                                        className="h-5 w-8 rounded-[2px] border border-border/60"
+                                        style={{ backgroundImage: g.css }}
+                                    />
+                                    {label}
                                 </button>
                             );
                         })}
@@ -140,8 +154,11 @@ export function BackgroundCard({
             {a.background.type === 'image' && (
                 <>
                     <SettingRow
-                        label="壁纸"
-                        hint="支持 PNG / JPEG / WebP，最大 5MB。"
+                        label={t('壁纸', 'Wallpaper')}
+                        hint={t(
+                            '支持 PNG / JPEG / WebP，最大 5MB。',
+                            'PNG, JPEG, or WebP, up to 5 MB.',
+                        )}
                         layout="stack"
                     >
                         <div className="flex flex-wrap items-center gap-3">
@@ -163,7 +180,9 @@ export function BackgroundCard({
                                 ) : (
                                     <Upload className="size-4" />
                                 )}
-                                {a.background.hasImage ? '更换图片' : '上传图片'}
+                                {a.background.hasImage
+                                    ? t('更换图片', 'Replace image')
+                                    : t('上传图片', 'Upload image')}
                             </Button>
                             {a.background.hasImage && (
                                 <Button
@@ -173,7 +192,7 @@ export function BackgroundCard({
                                     disabled={busy}
                                     className="text-destructive hover:text-destructive"
                                 >
-                                    <Trash2 className="size-4" /> 移除
+                                    <Trash2 className="size-4" /> {t('移除', 'Remove')}
                                 </Button>
                             )}
                         </div>
@@ -181,7 +200,7 @@ export function BackgroundCard({
                             <div className="max-w-lg overflow-hidden rounded-[4px] border">
                                 <img
                                     src={`/ui-asset/background?v=${a.background.imageVersion}`}
-                                    alt="背景预览"
+                                    alt={t('背景预览', 'Background preview')}
                                     className="h-32 w-full object-cover"
                                 />
                             </div>
@@ -191,8 +210,11 @@ export function BackgroundCard({
                     {a.background.hasImage && (
                         <>
                             <SliderSettingRow
-                                label="遮罩强度"
-                                hint="提高遮罩以增加前景可读性。"
+                                label={t('遮罩强度', 'Overlay opacity')}
+                                hint={t(
+                                    '提高遮罩以增加前景可读性。',
+                                    'Increase opacity to improve foreground readability.',
+                                )}
                                 min={0}
                                 max={1}
                                 step={0.05}
@@ -204,7 +226,7 @@ export function BackgroundCard({
                                 aria-valuetext={`${Math.round(a.background.imageOpacity * 100)}%`}
                             />
                             <SliderSettingRow
-                                label="背景模糊"
+                                label={t('背景模糊', 'Background blur')}
                                 min={0}
                                 max={40}
                                 step={1}
@@ -213,14 +235,21 @@ export function BackgroundCard({
                                 onValueChange={(imageBlur) =>
                                     setAppearance({ background: { imageBlur } })
                                 }
-                                aria-valuetext={`${a.background.imageBlur} 像素`}
+                                aria-valuetext={t(
+                                    `${a.background.imageBlur} 像素`,
+                                    `${a.background.imageBlur} px`,
+                                )}
                             />
                         </>
                     )}
                 </>
             )}
 
-            {err && <p role="alert" className="py-3 text-xs text-destructive">{err}</p>}
+            {err && (
+                <p role="alert" className="py-3 text-xs text-destructive">
+                    {err}
+                </p>
+            )}
         </Group>
     );
 }

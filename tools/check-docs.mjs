@@ -238,31 +238,46 @@ export function checkHtmlReferences({ html, file, outDir, withDemo = false }) {
 
 function checkTutorial(html, lang, chapter, label) {
   const problems = [];
-  const iframes = [...html.matchAll(/<iframe\b[^>]*>/gi)];
-  if (iframes.length !== 1)
-    return [`${label}: expected one tutorial iframe, found ${iframes.length}`];
-  const iframe = attributes(iframes[0][0]);
-  const expected = tutorialUrl(DOCS_BASE, chapter, lang);
-  if (iframe.src !== expected || Object.hasOwn(iframe, 'srcdoc')) {
-    problems.push(`${label}: tutorial iframe must use exactly ${expected}`);
-  }
-  const sandbox = new Set((iframe.sandbox ?? '').split(/\s+/));
+  if (/<iframe\b/i.test(html)) problems.push(`${label}: tutorial must not load before activation`);
+  const launcher = /<section\b[^>]*\bdata-tutorial="[^"]+"[^>]*>/i.exec(html);
+  const heading = /<h1[\s>]/i.exec(html);
   if (
-    !sandbox.has('allow-scripts') ||
-    !sandbox.has('allow-same-origin') ||
-    [...sandbox].some(
-      (flag) => !['allow-scripts', 'allow-same-origin', 'allow-downloads'].includes(flag),
-    )
+    !launcher ||
+    !heading ||
+    launcher.index > heading.index ||
+    attributes(launcher[0])['data-tutorial'] !== chapter ||
+    attributes(launcher[0])['data-tutorial-expanded'] !== 'false'
   ) {
-    problems.push(`${label}: tutorial iframe has an unsafe sandbox`);
+    problems.push(`${label}: expected a collapsed tutorial launcher above the chapter text`);
   }
-  if (!iframe.title?.trim() || iframe.referrerpolicy !== 'no-referrer') {
-    problems.push(`${label}: tutorial iframe is missing its accessible title or referrer policy`);
+  const toggle = /<button\b[^>]*\sdata-tutorial-load(?=[\s=>])[^>]*>/i.exec(html);
+  const stage = /<div\b[^>]*\bid="tutorial-simulator-stage"[^>]*>/i.exec(html);
+  const control = toggle && attributes(toggle[0]);
+  if (
+    !control ||
+    control['aria-expanded'] !== 'false' ||
+    !Object.hasOwn(control, 'disabled') ||
+    control['aria-controls'] !== 'tutorial-simulator-stage' ||
+    !stage ||
+    !Object.hasOwn(attributes(stage[0]), 'hidden')
+  ) {
+    problems.push(
+      `${label}: collapsed simulator needs an accessible load control disabled until hydration and a hidden stage`,
+    );
   }
-  if (iframes[0].index > html.search(/<h1[\s>]/i))
-    problems.push(`${label}: tutorial must appear above the chapter text`);
-  if (!html.includes('data-tutorial-restart') || !html.includes('data-tutorial-larger')) {
-    problems.push(`${label}: tutorial restart and larger-view controls are required`);
+  const larger = referencesOf(html).find(
+    (ref) => ref.tag === 'a' && Object.hasOwn(ref, 'data-tutorial-larger'),
+  );
+  const expected = tutorialUrl(DOCS_BASE, chapter, lang, { embedded: false });
+  const rel = larger?.rel?.split(/\s+/) ?? [];
+  if (
+    larger?.href !== expected ||
+    !larger['aria-label']?.trim() ||
+    larger.target !== '_blank' ||
+    !rel.includes('noopener') ||
+    !rel.includes('noreferrer')
+  ) {
+    problems.push(`${label}: simulator full-view link must safely open ${expected}`);
   }
   return problems;
 }
@@ -317,8 +332,28 @@ export function checkSite({ outDir = path.join(ROOT, '_site'), withDemo = false 
   if (withDemo) {
     if (!fs.existsSync(demoFile)) {
       problems.push('demo route _site/demo/index.html is missing; build the simulator first');
-    } else if (!/<!doctype html>/i.test(fs.readFileSync(demoFile, 'utf8'))) {
-      problems.push('demo route _site/demo/index.html is not an HTML document');
+    } else {
+      const html = fs.readFileSync(demoFile, 'utf8');
+      if (!/^<!doctype html>/i.test(html)) {
+        problems.push('demo route _site/demo/index.html is not an HTML document');
+      }
+      // The iframe permits form events so React can handle them. The document
+      // itself must still prohibit native form navigation and outbound requests.
+      const policies = [...html.matchAll(/<meta\b[^>]*>/gi)]
+        .map(([tag]) => attributes(tag))
+        .filter((meta) => meta['http-equiv']?.toLowerCase() === 'content-security-policy')
+        .map((meta) => (meta.content ?? '').split(';').map((directive) => directive.trim()));
+      for (const name of ['form-action', 'connect-src']) {
+        const blocked = policies.some((policy) =>
+          /^'none'$/.test(
+            policy
+              .find((directive) => directive.split(/\s+/, 1)[0].toLowerCase() === name)
+              ?.slice(name.length)
+              .trim() ?? '',
+          ),
+        );
+        if (!blocked) problems.push(`demo route CSP must include ${name} 'none'`);
+      }
     }
   }
   return problems;

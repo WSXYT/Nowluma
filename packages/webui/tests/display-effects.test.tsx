@@ -2,12 +2,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_APPEARANCE } from '@nowluma/common/webui-appearance';
 import type { UiAppearance } from '@nowluma/common/webui-appearance';
-import { DisplayEffectsControls, DisplayEffectsOnboardingStep } from '../src/components/display-effects';
+import {
+    DisplayEffectsControls,
+    DisplayEffectsOnboardingStep,
+} from '../src/components/display-effects';
 import { Segmented } from '../src/components/settings/settings-controls';
 import { Button } from '../src/components/ui/button';
 import { ToggleSwitch } from '../src/components/ui/toggle-switch';
 import { elements, hookHost } from './helpers/hook-host';
 import type { PerformanceMode } from '../src/lib/performance-mode';
+import { defaultTranslate, LocaleProvider, translator, useT } from '../src/i18n';
+import type * as I18n from '../src/i18n';
 
 type EffectsPatch = Partial<Pick<UiAppearance, 'disableMotion' | 'performanceMode'>>;
 const mocks = vi.hoisted(() => ({
@@ -22,6 +27,11 @@ const mocks = vi.hoisted(() => ({
     runAction: vi.fn(async (_options: unknown, action: () => Promise<unknown>) => action()),
 }));
 vi.mock('react', async (load) => ({ ...(await load<Record<string, unknown>>()) }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    // Direct invocations in hook-host tests do not have a React dispatcher.
+    return { ...locale, useT: vi.fn(locale.useT) };
+});
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => mocks.theme }));
 vi.mock('@/contexts/ActionFeedbackContext', async (load) => ({
     ...(await load<Record<string, unknown>>()),
@@ -34,11 +44,19 @@ vi.mock('@/components/interior/wizard-steps', async (load) => ({
 
 let host = hookHost();
 let token: string | null;
+let language: I18n.Language;
 const localWrites = vi.fn();
 const localReads = vi.fn<(key: string) => string | null>();
-const step = (replay = false) => host.render(() => DisplayEffectsOnboardingStep({ replay }));
-const controls = (replay = false) => elements(step(replay)).find((element) => element.type === DisplayEffectsControls)!;
-const advance = (replay = false) => elements(step(replay)).find((element) => element.type === Button)!;
+
+const step = (replay = false) => {
+    vi.mocked(useT).mockReturnValueOnce(translator(language));
+    return host.render(() => DisplayEffectsOnboardingStep({ replay }));
+};
+
+const controls = (replay = false) =>
+    elements(step(replay)).find((element) => element.type === DisplayEffectsControls)!;
+const advance = (replay = false) =>
+    elements(step(replay)).find((element) => element.type === Button)!;
 
 function choose(patch: EffectsPatch, replay = false) {
     (controls(replay).props.onChange as (patch: EffectsPatch) => void)(patch);
@@ -49,13 +67,17 @@ beforeEach(() => {
     vi.clearAllMocks();
     host = hookHost();
     token = 'fixture-session';
+    language = 'zh';
     mocks.theme.ready = true;
     mocks.theme.appearance = structuredClone(DEFAULT_APPEARANCE);
     mocks.theme.performance = { mode: 'high', low: false };
     mocks.theme.saveAppearance.mockResolvedValue(undefined);
-    localReads.mockImplementation((key) => key === 'nowluma_token' ? token : null);
+    localReads.mockImplementation((key) => (key === 'nowluma_token' ? token : null));
     vi.stubGlobal('localStorage', { getItem: localReads, setItem: localWrites });
-    vi.stubGlobal('window', Object.assign(new EventTarget(), { matchMedia: () => ({ matches: false }) }));
+    vi.stubGlobal(
+        'window',
+        Object.assign(new EventTarget(), { matchMedia: () => ({ matches: false }) }),
+    );
 });
 afterEach(() => {
     host.unmount();
@@ -63,9 +85,33 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
+describe('display effects locale and tutorial controls', () => {
+    it('marks the Settings switch and shared preview figure in the rendered DOM', () => {
+        const view = (requireExplicit: boolean) =>
+            renderToStaticMarkup(
+                <LocaleProvider fixed="en">
+                    <DisplayEffectsControls
+                        value={{ disableMotion: true, performanceMode: 'low' }}
+                        onChange={vi.fn()}
+                        requireExplicit={requireExplicit}
+                    />
+                </LocaleProvider>,
+            );
+        const settings = view(false);
+        expect(settings).toMatch(
+            /<button(?=[^>]*role="switch")(?=[^>]*aria-label="Motion")(?=[^>]*data-tutorial-control="motion-setting")[^>]*>/,
+        );
+        expect(settings).toMatch(
+            /<figure(?=[^>]*aria-label="Display effects preview")(?=[^>]*data-tutorial-control="effect-preview")[^>]*>/,
+        );
+        expect(settings).toContain('Frosted glass');
+        expect(view(true)).not.toContain('motion-setting');
+    });
+});
 describe('shared manual display controls', () => {
     it('maps the positive motion switch to disableMotion without coupling it to glass quality', () => {
         const onChange = vi.fn();
+        vi.mocked(useT).mockReturnValueOnce(defaultTranslate);
         const tree = DisplayEffectsControls({
             value: { disableMotion: true, performanceMode: 'low' },
             onChange,
@@ -107,7 +153,9 @@ describe('Display effects onboarding save/replay boundary', () => {
         expect(advance().props.disabled).toBe(true);
         choose({ performanceMode: 'low' });
         expect(advance().props.disabled).toBe(false);
-        expect(mocks.theme.setAppearancePreview).toHaveBeenLastCalledWith({ performanceMode: 'low' });
+        expect(mocks.theme.setAppearancePreview).toHaveBeenLastCalledWith({
+            performanceMode: 'low',
+        });
         expect(mocks.theme.saveAppearance).not.toHaveBeenCalled();
         expect(localWrites).not.toHaveBeenCalled();
     });
@@ -116,11 +164,24 @@ describe('Display effects onboarding save/replay boundary', () => {
         const pending = Promise.withResolvers<void>();
         mocks.theme.saveAppearance.mockReturnValueOnce(pending.promise);
         choose({ disableMotion: true, performanceMode: 'low' });
+        language = 'en';
+        expect(controls().props.value).toEqual({ disableMotion: true, performanceMode: 'low' });
+        expect(String(advance().props.children)).toContain('Save and continue');
         const click = advance().props.onClick as () => void;
         click();
         click();
         expect(mocks.theme.saveAppearance).toHaveBeenCalledOnce();
-        expect(mocks.theme.saveAppearance).toHaveBeenCalledWith({ disableMotion: true, performanceMode: 'low' });
+        expect(mocks.theme.saveAppearance).toHaveBeenCalledWith({
+            disableMotion: true,
+            performanceMode: 'low',
+        });
+        expect(mocks.runAction).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'Saving display effects',
+                successTitle: 'Display effects saved',
+            }),
+            expect.any(Function),
+        );
         expect(mocks.next).not.toHaveBeenCalled();
         expect(advance().props.disabled).toBe(true);
         pending.resolve();
@@ -181,7 +242,10 @@ describe('Display effects onboarding save/replay boundary', () => {
         expect(String(button.props.children)).toContain('应用预览并继续');
         (button.props.onClick as () => void)();
         expect(mocks.next).toHaveBeenCalledOnce();
-        expect(mocks.theme.setAppearancePreview).toHaveBeenCalledWith({ disableMotion: false, performanceMode: 'low' });
+        expect(mocks.theme.setAppearancePreview).toHaveBeenCalledWith({
+            disableMotion: false,
+            performanceMode: 'low',
+        });
         expect(mocks.theme.saveAppearance).not.toHaveBeenCalled();
         expect(mocks.runAction).not.toHaveBeenCalled();
         expect(localReads).not.toHaveBeenCalled();

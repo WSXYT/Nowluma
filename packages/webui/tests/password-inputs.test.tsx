@@ -4,6 +4,7 @@ import { FloatingLabelInput } from '../src/components/interior/floating-label';
 import { InlineValidation } from '../src/components/interior/inline-validation';
 import { PasswordStrength, type PasswordRule } from '../src/components/interior/password-strength';
 import { passwordRequirementHint } from '../src/components/pages/change-password-form';
+import { translator } from '../src/i18n';
 
 const RULES: readonly PasswordRule[] = [
     { id: 'length', label: '长度不少于 10 位', test: (value) => value.length >= 10 },
@@ -102,6 +103,22 @@ describe('passwordRequirementHint', () => {
                 checkError: '',
             }),
         ).toBe('仍需满足：长度不少于 10 位');
+    });
+
+    it('translates only known rule labels in the English blur hint', () => {
+        expect(
+            passwordRequirementHint(
+                {
+                    focused: false,
+                    value: 'short',
+                    checked: true,
+                    valid: false,
+                    rules: [...rules, { id: 'length', label: '服务器规则', ok: false }],
+                    checkError: '',
+                },
+                translator('en'),
+            ),
+        ).toBe('Still required: At least 10 characters, 服务器规则');
     });
 
     it('does not invent unmet rules while strength is still being checked', () => {

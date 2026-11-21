@@ -127,7 +127,7 @@ if [[ ! -f "$SCRIPT_DIR/docker-compose.yml" ]]; then
         command -v curl >/dev/null || fail '需要 curl 下载源码。' 'curl is required to download the source.'
         TEMPORARY=$(mktemp -d)
         msg '正在下载 Nowluma 源码……' 'Downloading Nowluma source…'
-        curl --fail --location --retry 2 https://codeload.github.com/WSXYT/Nowluma/tar.gz/refs/heads/main --output "$TEMPORARY/source.tar.gz"
+        curl --fail --location --retry 2 https://codeload.github.com/NowLuma/NowLuma/tar.gz/refs/heads/main --output "$TEMPORARY/source.tar.gz"
         tar -tzf "$TEMPORARY/source.tar.gz" > "$TEMPORARY/files"
         if grep -Eq '(^/|(^|/)\.\.(/|$))' "$TEMPORARY/files"; then fail '源码压缩包路径无效。' 'Invalid source archive paths.'; fi
         mkdir "$TEMPORARY/source"

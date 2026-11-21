@@ -2,7 +2,7 @@ import type { DemoApi, TutorialBaseline } from './api';
 import type { TutorialId, TutorialLanguage } from './tutorial-options';
 
 export type TutorialText = Readonly<{ zh: string; en: string }>;
-export type TutorialTarget = Readonly<{ selector: string; text?: string; rowLabel?: string }>;
+export type TutorialTarget = Readonly<{ selector: string }>;
 export type TutorialProof =
     | 'reading'
     | 'login'
@@ -47,11 +47,14 @@ export type TutorialLesson = Readonly<{
     steps: readonly TutorialStep[];
 }>;
 
-const controls = '.demo-console button, [role="dialog"] button';
-const processTarget = { selector: '.demo-console [aria-label="进程详情"]' };
+// Selectors identify the same real controls in both console languages.
+export const tutorialControl = (id: string, container = '.demo-console') =>
+    `${container} [data-tutorial-control="${id}"]`;
+const processTarget = { selector: tutorialControl('process-detail') };
 const consoleTarget = { selector: '.demo-console main' };
-const serviceTarget = { selector: '.demo-console [aria-label="服务"]' };
-const diagnosticsTarget = { selector: '.demo-console button', text: '复制诊断' };
+const serviceTarget = { selector: '[data-settings-tab="system"]' };
+const diagnosticsTarget = { selector: tutorialControl('copy-diagnostics') };
+const actionTarget = { selector: `${tutorialControl('debug-action')} button` };
 
 const overview: TutorialStep = {
     id: 'overview',
@@ -80,7 +83,7 @@ const config: TutorialStep = {
     title: { zh: '确认账号 10001 的配置上下文', en: 'Inspect account 10001 configuration' },
     hint: {
         zh: '选择 DEMO 小光 / 10001，打开消息行为。配置按账号隔离，不是全局设置。',
-        en: 'Select DEMO 小光 / 10001 and inspect 消息行为 (message behavior). These settings belong to this account, not the whole service.',
+        en: 'Select DEMO 小光 / 10001 and inspect Message behavior. These settings belong to this account, not the whole service.',
     },
     route: '/config',
     proof: 'account-config',
@@ -91,7 +94,7 @@ const http: TutorialStep = {
     title: { zh: '打开 HTTP 接口配置', en: 'Open the HTTP adapter configuration' },
     hint: {
         zh: '点「HTTP 接口」，查看 DEMO HTTP 的监听地址和开关；编辑仅保存在本页内存，不会打开端口。',
-        en: 'Choose HTTP 接口 and inspect DEMO HTTP. Edits remain in this page’s memory and never open a listening port.',
+        en: 'Choose HTTP API and inspect DEMO HTTP. Edits remain in this page’s memory and never open a listening port.',
     },
     route: '/config',
     proof: 'http-config',
@@ -102,11 +105,11 @@ const saveConfig: TutorialStep = {
     title: { zh: '保存一次示例账号配置', en: 'Save the sample account configuration' },
     hint: {
         zh: '可编辑 DEMO HTTP 后保存，或点「立即保存」。只有 API 接受保存才完成；失败不会算作完成。',
-        en: 'Edit DEMO HTTP and save, or choose 立即保存 (save now). Only an accepted API save completes this step; a failed write does not.',
+        en: 'Edit DEMO HTTP and save, or choose Save now. Only an accepted API save completes this step; a failed write does not.',
     },
     route: '/config',
     proof: 'config-saved',
-    target: { selector: controls, text: '立即保存' },
+    target: { selector: tutorialControl('config-save') },
 };
 const logs: TutorialStep = {
     id: 'logs',
@@ -117,18 +120,18 @@ const logs: TutorialStep = {
     },
     route: '/logs',
     proof: 'logs',
-    target: { selector: '.demo-console [aria-label="日志工作区"]' },
+    target: { selector: tutorialControl('log-workspace') },
 };
 const filterLogs: TutorialStep = {
     id: 'filter',
     title: { zh: '搜索 DEMO 日志', en: 'Filter logs for DEMO' },
     hint: {
         zh: '在「搜索消息 / 模块 / 级别」输入 DEMO，确认仍有匹配样本。清除搜索可以恢复视图。',
-        en: 'Type DEMO in 搜索消息 / 模块 / 级别 and inspect the matching sample entries. Clear the search to restore the view.',
+        en: 'Type DEMO in Search message / module / level and inspect the matching sample entries. Clear the search to restore the view.',
     },
     route: '/logs',
     proof: 'log-filter',
-    target: { selector: '.demo-console input[aria-label="搜索消息 / 模块 / 级别"]' },
+    target: { selector: tutorialControl('log-search') },
 };
 const service: TutorialStep = {
     id: 'service',
@@ -146,7 +149,7 @@ const diagnostics: TutorialStep = {
     title: { zh: '核对部署诊断中的目录', en: 'Inspect deployment directories' },
     hint: {
         zh: '在服务页向下找到「运行目录」，检查工作目录、HOME 和可写性。所有 /DEMO 路径均为样本；真实路径需在自己的部署核实。',
-        en: 'Find 运行目录 (runtime directories) on the Service page. Inspect working directory, HOME and write access. /DEMO paths are samples; verify real paths on your own deployment.',
+        en: 'Find Runtime directories on the Service page. Inspect working directory, HOME and write access. /DEMO paths are samples; verify real paths on your own deployment.',
     },
     route: '/settings?tab=system',
     proof: 'diagnostics',
@@ -161,7 +164,7 @@ const storage: TutorialStep = {
     },
     route: '/settings?tab=storage',
     proof: 'storage-panel',
-    target: { selector: '.demo-console [aria-label="存储管理"]' },
+    target: { selector: '[data-settings-tab="storage"]' },
 };
 
 function reading(id: string, title: TutorialText, hint: TutorialText, route = '/'): TutorialStep {
@@ -174,7 +177,7 @@ const firstRun: readonly TutorialStep[] = [
         title: { zh: '用公开示例密码登录', en: 'Log in with the public example password' },
         hint: {
             zh: '访问密码填 DemoOnly!2026 并登录。不要输入自己的密码。',
-            en: 'Enter DemoOnly!2026 in 访问密码 and log in. Never enter your own password.',
+            en: 'Enter DemoOnly!2026 in Access password and log in. Never enter your own password.',
         },
         route: '/',
         proof: 'login',
@@ -188,18 +191,18 @@ const firstRun: readonly TutorialStep[] = [
         },
         hint: {
             zh: '阅读使用与隐私说明，主动勾选「我已阅读」，再点「确认并继续」。引导不会代替你确认。',
-            en: 'Read the use/privacy notices, actively select 我已阅读, then 确认并继续. The guide never accepts on your behalf.',
+            en: 'Read the use and privacy notices, actively acknowledge both, then confirm and continue. The guide never accepts on your behalf.',
         },
         route: '/',
         proof: 'consent',
-        target: { selector: '.demo-console button', text: '我已阅读《使用说明》和《隐私说明》' },
+        target: { selector: tutorialControl('agreement-ack') },
     },
     {
         id: 'password',
         title: { zh: '设置公开示例新密码', en: 'Set the public example new password' },
         hint: {
             zh: '新密码与确认都填 DemoChanged!2026，再「保存并继续」。只保存成功才完成。',
-            en: 'Enter DemoChanged!2026 in both new-password fields, then 保存并继续. Only a successful save completes this step.',
+            en: 'Enter DemoChanged!2026 in both new-password fields, then choose Save and continue. Only a successful save completes this step.',
         },
         route: '/',
         proof: 'password',
@@ -210,18 +213,18 @@ const firstRun: readonly TutorialStep[] = [
         title: { zh: '手动选择显示效果并保存', en: 'Choose and save display effects manually' },
         hint: {
             zh: '主动选择动效开关与完整/磨砂玻璃，再点「保存并继续」。没有自动性能分档。',
-            en: 'Explicitly choose motion and full/frosted glass, then 保存并继续. There is no automatic performance tier selection.',
+            en: 'Explicitly choose motion and full or frosted glass, then select Save and continue. There is no automatic performance tier selection.',
         },
         route: '/',
         proof: 'appearance',
-        target: { selector: '.demo-console [aria-label="显示效果预览"]' },
+        target: { selector: tutorialControl('effect-preview') },
     },
     {
         id: 'finish',
         title: { zh: '完成内核预览并进入概览', en: 'Finish the kernel preview and enter Overview' },
         hint: {
             zh: '无已识别账号时查看可用性，点「继续」进入控制台。重写内核不可用；此步不伪造账号风险确认。',
-            en: 'With no detected account, inspect availability and choose 继续 to enter the console. Rewrite remains unavailable; this step does not fabricate account risk consent.',
+            en: 'With no detected account, inspect availability and choose Continue to enter the console. Rewrite remains unavailable; this step does not fabricate account risk consent.',
         },
         route: '/',
         proof: 'console',
@@ -238,11 +241,11 @@ const qq: readonly TutorialStep[] = [
         },
         hint: {
             zh: '先在 PID 4242 详情点「加载」。阅读弹出的说明，选择兼容内核、主动勾选风险，再点「确认并接入」。取消不接入，重写内核不可用。',
-            en: 'Choose 加载 for PID 4242. Read the dialog, choose compat, actively check its risk box, then 确认并接入. Cancel does not attach, and rewrite remains unavailable.',
+            en: 'Choose Load for PID 4242. Read the dialog, select the compatible kernel, actively check its risk box, then confirm and attach. Cancel does not attach, and the rewrite remains unavailable.',
         },
         route: '/processes',
         proof: 'kernel',
-        target: { selector: controls, text: '加载' },
+        target: { selector: tutorialControl('process-load') },
     },
     {
         id: 'online',
@@ -260,11 +263,11 @@ const qq: readonly TutorialStep[] = [
         title: { zh: '卸载并保持手动停止', en: 'Unload and preserve the manual stop' },
         hint: {
             zh: '点「卸载」，确认会话断开。已停止状态不会自动重连，只有主动再次加载才接入。重置可重新练习门禁。',
-            en: 'Choose 卸载 and inspect the disconnected result. Manual stop does not auto-reconnect; only an explicit load attaches again. Restart the lesson to repeat the risk gate.',
+            en: 'Choose Unload and inspect the disconnected result. Manual stop does not auto-reconnect; only an explicit load attaches again. Restart the lesson to repeat the risk gate.',
         },
         route: '/processes',
         proof: 'stopped',
-        target: { selector: controls, text: '卸载' },
+        target: { selector: tutorialControl('process-unload') },
     },
 ];
 
@@ -383,11 +386,11 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
             title: { zh: '导出完整示例 TRACE', en: 'Export the full sample TRACE' },
             hint: {
                 zh: '在日志工具栏点「导出完整 TRACE」，查看导出的完整记录；当前搜索只影响视图，不限制完整导出。',
-                en: 'Choose 导出完整 TRACE in the log toolbar and inspect the complete exported record. The current search filters the view, not the full export.',
+                en: 'Choose Export full TRACE in the log toolbar and inspect the complete exported record. The current search filters the view, not the full export.',
             },
             route: '/logs',
             proof: 'trace-export',
-            target: { selector: controls, text: '导出完整 TRACE' },
+            target: { selector: tutorialControl('log-export-trace') },
         },
     ]),
     debug: lesson('debug', { zh: '示例发送与查询', en: 'Sample send and lookup' }, [
@@ -396,22 +399,22 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
             title: { zh: '打开接口调用', en: 'Open the action tester' },
             hint: {
                 zh: '在开发者工具选择「接口调用」，账号选择 10001。所有返回值均为 DEMO。',
-                en: 'Choose 接口调用 in developer tools and select account 10001. Every result is simulated.',
+                en: 'Open the action tester in Developer Tools and select account 10001. Every result is simulated.',
             },
             route: '/debug',
             proof: 'debug',
-            target: { selector: '.demo-console [aria-label="选择接口"]' },
+            target: actionTarget,
         },
         {
             id: 'send',
             title: { zh: '主动运行 send_private_msg', en: 'Explicitly invoke send_private_msg' },
             hint: {
                 zh: '选择 send_private_msg，user_id 填 10002，message 填 #nl，再点「运行调用」。也可切 JSON 输入 {"user_id":10002,"message":"#nl"}。只存内存，不发 QQ。',
-                en: 'Choose send_private_msg, set user_id to 10002 and message to #nl, then 运行调用. Or use JSON: {"user_id":10002,"message":"#nl"}. This stores a memory sample, not a QQ message.',
+                en: 'Choose send_private_msg, set user_id to 10002 and message to #nl, then choose Run action. Or use JSON: {"user_id":10002,"message":"#nl"}. This stores a memory sample, not a QQ message.',
             },
             route: '/debug',
             proof: 'message-sent',
-            target: { selector: '.demo-console [aria-label="运行调用"]' },
+            target: { selector: tutorialControl('debug-run') },
         },
         {
             id: 'get',
@@ -422,7 +425,7 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
             },
             route: '/debug',
             proof: 'message-inspected',
-            target: { selector: '.demo-console [aria-label="选择接口"]' },
+            target: actionTarget,
         },
     ]),
     'settings-console': lesson(
@@ -434,11 +437,11 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
                 title: { zh: '打开外观设置', en: 'Open appearance settings' },
                 hint: {
                     zh: '查看外观中的主题、动效与玻璃材质。显示选择由你主动设置，不由性能检测自动切换。',
-                    en: 'Inspect theme, motion and glass under 外观. Display choices are manual, never automatically selected by performance detection.',
+                    en: 'Inspect theme, motion and glass under Appearance. Display choices are manual, never automatically selected by performance detection.',
                 },
                 route: '/settings?tab=appearance',
                 proof: 'appearance-panel',
-                target: { selector: '.demo-console [aria-label="外观"]' },
+                target: { selector: '[data-settings-tab="appearance"]' },
             },
             {
                 id: 'save-appearance',
@@ -449,7 +452,7 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
                 },
                 route: '/settings?tab=appearance',
                 proof: 'appearance',
-                target: { selector: '.demo-console [aria-label="动效"]' },
+                target: { selector: tutorialControl('motion-setting') },
             },
         ],
     ),
@@ -463,11 +466,11 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
                 title: { zh: '保存示例端口 5100', en: 'Save sample port 5100' },
                 hint: {
                     zh: '把端口从 5099 改成 5100，再点「保存服务设置」。检查「重启后生效」提示；这里只改内存，不改变监听、不重启服务。',
-                    en: 'Change port 5099 to 5100 and choose 保存服务设置. Inspect the restart-required notice. Only memory changes here; no listener changes and no service restart occurs.',
+                    en: 'Change port 5099 to 5100 and save the service settings. Inspect the restart-required notice. Only memory changes here; no listener changes and no service restart occurs.',
                 },
                 route: '/settings?tab=system',
                 proof: 'service-saved',
-                target: { selector: '.demo-console [aria-label="端口"]' },
+                target: { selector: tutorialControl('service-port') },
             },
             diagnostics,
         ],
@@ -500,37 +503,33 @@ export const TUTORIAL_LESSONS: Record<TutorialId, TutorialLesson> = {
                 title: { zh: '保存 14 天日志保留', en: 'Save 14-day log retention' },
                 hint: {
                     zh: '将「保留天数」改为 14，点「保存并应用」。需要已保存的有效状态等于 14，而非输入框变化。',
-                    en: 'Set 保留天数 to 14 and choose 保存并应用. Completion requires the accepted effective state to be 14, not merely a changed input.',
+                    en: 'Set retention days to 14 and choose Save and apply. Completion requires the accepted effective state to be 14, not merely a changed input.',
                 },
                 route: '/settings?tab=storage',
                 proof: 'storage-saved',
-                target: { selector: '.demo-console [aria-label="保留天数"]' },
+                target: { selector: tutorialControl('storage-retention') },
             },
             {
                 id: 'cleanup',
                 title: { zh: '确认清理示例日志', en: 'Confirm sample log cleanup' },
                 hint: {
                     zh: '在「清理临时数据」区域找到「日志」一行，点该行「清理」；阅读「清理全部日志？」对话框，再点「确认清理」。日志字节数归零后才完成；取消不算。',
-                    en: 'Under 清理临时数据, find the 日志 row and choose its 清理 button. Read the 清理全部日志？ dialog, then 确认清理. Completion requires zero log bytes; cancel does not count.',
+                    en: 'Under temporary data cleanup, find the Logs row and choose its cleanup button. Read the confirmation and confirm. Completion requires zero log bytes; cancel does not count.',
                 },
                 route: '/settings?tab=storage',
                 proof: 'logs-cleaned',
-                target: {
-                    selector: '.demo-console [aria-label="存储管理"] button',
-                    text: '清理',
-                    rowLabel: '日志',
-                },
+                target: { selector: tutorialControl('storage-clean-logs') },
             },
             {
                 id: 'backup',
                 title: { zh: '导出 DEMO 配置备份', en: 'Export a DEMO configuration backup' },
                 hint: {
                     zh: '打开服务页底部「服务配置备份」，不要勾选敏感配置，点「导出备份」。这是示例配置导出，不包含 QQ 登录目录或真实数据库。',
-                    en: 'Find 服务配置备份 at the bottom of Service. Leave sensitive configuration unchecked and choose 导出备份. This exports sample configuration, not QQ login directories or real databases.',
+                    en: 'Find the service configuration backup at the bottom of Service. Leave sensitive configuration unchecked and choose Export backup. This exports sample configuration, not QQ login directories or real databases.',
                 },
                 route: '/settings?tab=system',
                 proof: 'backup-export',
-                target: { selector: controls, text: '导出备份' },
+                target: { selector: tutorialControl('service-backup') },
             },
         ],
     ),

@@ -12,7 +12,11 @@ import {
 } from 'react';
 import { MotionConfig } from 'motion/react';
 import { actionErrorMessage, useActionFeedback } from '@/contexts/ActionFeedbackContext';
-import { normalizePerformanceMode, performanceModeLow, type PerformanceMode } from '@/lib/performance-mode';
+import {
+    normalizePerformanceMode,
+    performanceModeLow,
+    type PerformanceMode,
+} from '@/lib/performance-mode';
 import type { ThemeMode, UiAppearance, UiBackground } from '@/types';
 import { DEFAULT_APPEARANCE } from '@nowluma/common/webui-appearance';
 import { WEBUI_TARGETS, type WebuiPresentation } from '@nowluma/common/webui-target';
@@ -34,6 +38,7 @@ import {
     writeCache,
 } from '@/appearance/persistence';
 import { runThemeReveal, trackRevealOrigin } from '@/appearance/reveal';
+import { translator, useLocale } from '@/i18n';
 
 // Re-export the appearance surface so consumers keep importing it from the
 // context module while each value has one owner under `@/appearance`.
@@ -141,6 +146,14 @@ function getSystemTheme(): 'light' | 'dark' {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+    const { language, locale } = useLocale();
+    const t = translator(language);
+    const tRef = useRef(t);
+    // Copy changes must not change the identity of the initial-load or save callbacks.
+    useLayoutEffect(() => {
+        tRef.current = t;
+    }, [t]);
+
     const { runAction, startAction } = useActionFeedback();
     const [appearance, setAppearanceState] = useState<UiAppearance>(readCache);
     const [appearancePreview, setAppearancePreviewState] = useState<AppearancePatch | null>(null);
@@ -149,11 +162,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         presentationStore.getSnapshot,
     );
     const effectiveAppearance = useMemo(
-        () => resolveAppearance(
-            appearancePreview ? mergeAppearance(appearance, appearancePreview) : appearance,
-            presentation,
-            getTargetAppearance(),
-        ),
+        () =>
+            resolveAppearance(
+                appearancePreview ? mergeAppearance(appearance, appearancePreview) : appearance,
+                presentation,
+                getTargetAppearance(),
+            ),
         [appearance, appearancePreview, presentation],
     );
     const performanceMode = normalizePerformanceMode(effectiveAppearance.performanceMode);
@@ -177,10 +191,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const queueSave = useCallback((next: UiAppearance, token: string | null) => {
         const write = () => {
             if (!mounted.current) {
-                throw new Error('外观保存已取消。');
+                throw new Error(tRef.current('外观保存已取消。', 'Appearance save was canceled.'));
             }
+
             return persistAppearance(next, token);
         };
+
         const previous = inFlightSave.current;
         // Previous callers retain their own failure; this is a new explicit/debounced edit.
         const result = previous ? previous.then(write, write) : write();
@@ -188,24 +204,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         return result;
     }, []);
 
-    const scheduleSave = useCallback((token: string | null) => {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = window.setTimeout(() => {
-            saveTimer.current = undefined;
-            void queueSave(appearanceRef.current, token).catch((error) => {
-                if (!mounted.current || authToken() !== token) {
-                    return;
-                }
-                console.error('persist appearance failed', error);
-                startAction({ title: '外观同步失败' }).fail(
-                    `当前修改未保存：${actionErrorMessage(error)}`,
-                );
-            });
-        }, 400);
-    }, [queueSave, startAction]);
+    const scheduleSave = useCallback(
+        (token: string | null) => {
+            clearTimeout(saveTimer.current);
+            saveTimer.current = window.setTimeout(() => {
+                saveTimer.current = undefined;
+                void queueSave(appearanceRef.current, token).catch((error) => {
+                    if (!mounted.current || authToken() !== token) {
+                        return;
+                    }
+
+                    console.error('persist appearance failed', error);
+                    const translate = tRef.current;
+                    const detail = actionErrorMessage(error, translate);
+                    startAction({
+                        title: translate('外观同步失败', 'Could not sync appearance'),
+                    }).fail(
+                        translate(`当前修改未保存：${detail}`, `Changes were not saved: ${detail}`),
+                    );
+                });
+            }, 400);
+        },
+        [queueSave, startAction],
+    );
 
     const setAppearancePreview = useCallback((patch: AppearancePatch | null) => {
-        const next = patch === null ? null : mergeAppearancePatches(previewRef.current ?? {}, patch);
+        const next =
+            patch === null ? null : mergeAppearancePatches(previewRef.current ?? {}, patch);
         previewRef.current = next;
         setAppearancePreviewState(next);
     }, []);
@@ -231,10 +256,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         if (initialPatch.current === null) {
             return;
         }
+
         let cancelled = false;
 
         (async () => {
             const server = await fetchAppearance();
+
             if (cancelled) {
                 return;
             }
@@ -246,6 +273,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
             setAppearanceState(next);
             writeCache(next);
             setReady(true);
+
             if (Object.keys(patch).length > 0) {
                 scheduleSave(initialEditToken.current);
             }
@@ -275,6 +303,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Cancel pending debounce work and suppress old-session/unmounted result notices.
     useEffect(() => {
         mounted.current = true;
+
         return () => {
             mounted.current = false;
             clearTimeout(saveTimer.current);
@@ -302,34 +331,64 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         [scheduleSave],
     );
 
-    const saveAppearance = useCallback(async (patch: AppearancePatch) => {
-        const token = authToken();
-        if (!token) {
-            throw new Error('登录已失效，请重新登录后保存显示效果。');
-        }
-        if (initialPatch.current !== null) {
-            throw new Error('外观仍在加载，请稍后再保存。');
-        }
-        clearTimeout(saveTimer.current);
-        saveTimer.current = undefined;
-        // Setup can begin while the initial read was public (without custom CSS).
-        // Read the authenticated owner before replacing its full appearance section.
-        const server = await fetchAppearance(true);
-        if (authToken() !== token) {
-            throw new Error('登录状态已变化，请重新登录后保存显示效果。');
-        }
-        if (!mounted.current) {
-            throw new Error('外观保存已取消。');
-        }
-        if (!server) {
-            throw new Error('无法读取已保存的外观；当前显示选择未提交，请稍后再保存。');
-        }
-        appearanceRef.current = mergeAppearance(server, editedAppearance.current);
-        commit(mergeAppearancePatches(previewRef.current ?? {}, patch));
-        clearTimeout(saveTimer.current);
-        saveTimer.current = undefined;
-        await queueSave(appearanceRef.current, token);
-    }, [commit, queueSave]);
+    const saveAppearance = useCallback(
+        async (patch: AppearancePatch) => {
+            const token = authToken();
+
+            if (!token) {
+                throw new Error(
+                    tRef.current(
+                        '登录已失效，请重新登录后保存显示效果。',
+                        'Your session has expired. Sign in again to save appearance settings.',
+                    ),
+                );
+            }
+
+            if (initialPatch.current !== null) {
+                throw new Error(
+                    tRef.current(
+                        '外观仍在加载，请稍后再保存。',
+                        'Appearance settings are still loading. Try saving again shortly.',
+                    ),
+                );
+            }
+
+            clearTimeout(saveTimer.current);
+            saveTimer.current = undefined;
+            // Setup can begin while the initial read was public (without custom CSS).
+            // Read the authenticated owner before replacing its full appearance section.
+            const server = await fetchAppearance(true);
+
+            if (authToken() !== token) {
+                throw new Error(
+                    tRef.current(
+                        '登录状态已变化，请重新登录后保存显示效果。',
+                        'Your session has changed. Sign in again to save appearance settings.',
+                    ),
+                );
+            }
+
+            if (!mounted.current) {
+                throw new Error(tRef.current('外观保存已取消。', 'Appearance save was canceled.'));
+            }
+
+            if (!server) {
+                throw new Error(
+                    tRef.current(
+                        '无法读取已保存的外观；当前显示选择未提交，请稍后再保存。',
+                        'Could not read saved appearance settings. Your changes were not submitted. Try saving again shortly.',
+                    ),
+                );
+            }
+
+            appearanceRef.current = mergeAppearance(server, editedAppearance.current);
+            commit(mergeAppearancePatches(previewRef.current ?? {}, patch));
+            clearTimeout(saveTimer.current);
+            saveTimer.current = undefined;
+            await queueSave(appearanceRef.current, token);
+        },
+        [commit, queueSave],
+    );
 
     const setAppearance = useCallback(
         (patch: AppearancePatch) => {
@@ -339,6 +398,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
                 setAppearancePreview(patch);
                 return;
             }
+
             const prev = appearanceRef.current;
             // Animate a circular light/dark reveal only for brightness/scheme changes
             // (mode, palette, dark intensity) — and never when motion is reduced/off
@@ -363,14 +423,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     );
 
     const uploadBackground = useMemo(
-        () => async (file: File) =>
-            runAction(
+        () => async (file: File) => {
+            const translate = tRef.current;
+            return runAction(
                 {
-                    title: '正在上传背景',
+                    title: translate('正在上传背景', 'Uploading background'),
                     detail: file.name,
-                    successTitle: '背景已更新',
+                    successTitle: translate('背景已更新', 'Background updated'),
                     successDetail: file.name,
-                    errorTitle: '背景上传失败',
+                    errorTitle: translate('背景上传失败', 'Background upload failed'),
                 },
                 async () => {
                     const ap = await uploadBackgroundImage(file);
@@ -381,19 +442,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
                         writeCache(ap);
                     }
                 },
-            ),
+            );
+        },
         [runAction],
     );
 
     const removeBackground = useMemo(
-        () => async () =>
-            runAction(
+        () => async () => {
+            const translate = tRef.current;
+            return runAction(
                 {
-                    title: '正在删除背景',
-                    detail: '移除已上传的壁纸',
-                    successTitle: '背景已删除',
-                    successDetail: '已恢复为无壁纸状态',
-                    errorTitle: '背景删除失败',
+                    title: translate('正在删除背景', 'Deleting background'),
+                    detail: translate('移除已上传的壁纸', 'Removing the uploaded wallpaper'),
+                    successTitle: translate('背景已删除', 'Background deleted'),
+                    successDetail: translate('已恢复为无壁纸状态', 'Wallpaper removed'),
+                    errorTitle: translate('背景删除失败', 'Background deletion failed'),
                 },
                 async () => {
                     const ap = await removeBackgroundImage();
@@ -404,7 +467,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
                         writeCache(ap);
                     }
                 },
-            ),
+            );
+        },
         [runAction],
     );
 
@@ -416,20 +480,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
                 return String(input);
             }
 
-            return d.toLocaleTimeString(undefined, {
+            return d.toLocaleTimeString(locale, {
                 hour12: appearance.timeFormat === '12h',
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
             });
         },
-        [appearance.timeFormat],
+        [appearance.timeFormat, locale],
     );
 
     const reloadAppearance = useCallback(async () => {
         // A post-auth read supplies custom CSS, not an implicit save of server defaults.
         const previousCss = appearanceRef.current.customCss;
         const server = await fetchAppearance();
+
         if (
             server &&
             appearanceRef.current.customCss === previousCss &&

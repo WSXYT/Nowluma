@@ -7,12 +7,14 @@ import {
     readLowIntegrityDismissed,
     saveLowIntegrityDismissed,
 } from '@/lib/low-integrity-warning';
+import { useT } from '@/i18n';
 
 /** Mounted in the authenticated layout so polling and route changes cannot reopen it. */
 export function LowIntegrityWarning({ lowIntegrity }: { lowIntegrity: boolean }) {
     const [dismissed, setDismissed] = useState(readLowIntegrityDismissed);
     const [error, setError] = useState<string | null>(null);
     const temporaryButton = useRef<HTMLButtonElement>(null);
+    const t = useT();
 
     useEffect(() => {
         const onStorage = (event: StorageEvent) => {
@@ -32,7 +34,12 @@ export function LowIntegrityWarning({ lowIntegrity }: { lowIntegrity: boolean })
             console.warn('failed to save low integrity warning preference', caught);
 
             if (scope === 'permanent') {
-                setError('无法保存设置，请允许浏览器存储或选择临时关闭。');
+                setError(
+                    t(
+                        '无法保存设置，请允许浏览器存储或选择临时关闭。',
+                        'Could not save the preference. Allow browser storage, or dismiss it temporarily.',
+                    ),
+                );
                 return;
             }
             // Even with storage blocked, temporary dismissal must let the user continue.
@@ -49,7 +56,7 @@ export function LowIntegrityWarning({ lowIntegrity }: { lowIntegrity: boolean })
             title={
                 <span className="flex items-center gap-2">
                     <AlertTriangle className="size-5 text-warning" />
-                    Node 完整性过低
+                    {t('Node 完整性过低', 'Node integrity is too low')}
                 </span>
             }
             showClose={false}
@@ -59,21 +66,26 @@ export function LowIntegrityWarning({ lowIntegrity }: { lowIntegrity: boolean })
             footer={
                 <>
                     <Button type="button" variant="outline" onClick={() => dismiss('permanent')}>
-                        永久关闭
+                        {t('永久关闭', 'Turn off permanently')}
                     </Button>
                     <Button ref={temporaryButton} type="button" onClick={() => dismiss('session')}>
-                        临时关闭
+                        {t('临时关闭', 'Turn off for now')}
                     </Button>
                 </>
             }
         >
             <div className="space-y-3">
                 <p>
-                    当前进程可能无法连接
-                    QQ。请检查启动程序的完整性标签，修正后重启。详情见启动日志。
+                    {t(
+                        '当前进程可能无法连接 QQ。请检查启动程序的完整性标签，修正后重启。详情见启动日志。',
+                        'The current process may be unable to connect to QQ. Check the launcher’s integrity signature, fix it, and restart. See the startup log for details.',
+                    )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                    临时关闭仅对当前标签页会话有效；永久关闭保存在此浏览器。
+                    {t(
+                        '临时关闭仅对当前标签页会话有效；永久关闭保存在此浏览器。',
+                        'Temporary dismissal only applies to this tab session; permanent dismissal is saved in this browser.',
+                    )}
                 </p>
                 {error && (
                     <p role="alert" className="text-sm text-destructive">

@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react';
 import { Check, ChevronRight, Copy, Image as ImageIcon } from 'lucide-react';
 import { cn, copyText } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 
 const IMAGE_URL_RE = /^https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|bmp)(?:[?#][^\s]*)?$/i;
 // QQ multimedia rkey image URLs don't end in an extension but carry these hints.
@@ -22,6 +23,7 @@ function Punct({ children }: { children: ReactNode }) {
 
 function Leaf({ value }: { value: string | number | boolean | null }) {
     const [showImg, setShowImg] = useState(false);
+    const t = useT();
 
     if (value === null) {
         return <span className="text-muted-foreground/70">null</span>;
@@ -47,13 +49,14 @@ function Leaf({ value }: { value: string | number | boolean | null }) {
                         onClick={() => setShowImg((v) => !v)}
                         className="ml-1.5 inline-flex items-center gap-0.5 rounded-md bg-muted/70 px-1 py-0.5 align-middle text-xs text-muted-foreground hover:text-foreground"
                     >
-                        <ImageIcon className="h-3 w-3" /> {showImg ? '隐藏' : '预览'}
+                        <ImageIcon className="h-3 w-3" />{' '}
+                        {showImg ? t('隐藏', 'Hide') : t('预览', 'Preview')}
                     </button>
                     {showImg && (
                         <span className="mt-1.5 block">
                             <img
                                 src={value}
-                                alt="预览"
+                                alt={t('预览', 'Preview')}
                                 className="media-outline max-h-48 rounded-lg"
                                 loading="lazy"
                             />
@@ -81,6 +84,7 @@ function Node({
     const isObj = typeof value === 'object' && value !== null;
     const [open, setOpen] = useState(defaultOpen);
     const [limit, setLimit] = useState(NODE_CAP);
+    const t = useT();
 
     const keyLabel =
         k != null ? (
@@ -133,8 +137,7 @@ function Node({
                 <Punct>{openB}</Punct>
                 {!open && (
                     <span className="text-muted-foreground/50">
-                        {count}
-                        {isArr ? '' : ' keys'}
+                        {isArr ? count : t(`${count} 个键`, `${count} keys`)}
                         <Punct>{closeB}</Punct>
                     </span>
                 )}
@@ -157,7 +160,10 @@ function Node({
                             className="py-0.5 text-xs text-primary hover:underline"
                             style={{ paddingLeft: `${depth * 0.9 + 1.1}rem` }}
                         >
-                            还有 {count - shown} 项,点击展开…
+                            {t(
+                                `还有 ${count - shown} 项,点击展开…`,
+                                `${count - shown} more items, click to expand…`,
+                            )}
                         </button>
                     )}
                     <div style={{ paddingLeft: `${depth * 0.9 + 0.9}rem` }}>
@@ -179,6 +185,7 @@ export function JsonTree({
     maxHeight?: string;
 }) {
     const [copied, setCopied] = useState(false);
+    const t = useT();
 
     const copy = async () => {
         // Stringify lazily, only on an actual copy — not on every render (a large
@@ -198,17 +205,19 @@ export function JsonTree({
     };
 
     return (
-        <div className={cn('relative rounded-[4px] border border-border/60 bg-muted/30', className)}>
+        <div
+            className={cn('relative rounded-[4px] border border-border/60 bg-muted/30', className)}
+        >
             <Button
                 type="button"
                 onClick={copy}
-                title="复制 JSON"
+                title={t('复制 JSON', 'Copy JSON')}
                 variant="glass"
                 size="sm"
                 className="absolute right-2 top-2 z-10 gap-1 text-xs"
             >
                 {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-                {copied ? '已复制' : '复制'}
+                {copied ? t('已复制', 'Copied') : t('复制', 'Copy')}
             </Button>
             <div
                 className="overflow-auto p-3 font-mono text-[11.5px] leading-relaxed"

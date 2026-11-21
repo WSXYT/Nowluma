@@ -30,6 +30,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { reconcileLayoutItems, useLayout } from '@/contexts/LayoutContext';
 import type { AppPath } from '@/router';
 import type { UiLayoutItem } from '@/types';
+import { useT, type Translate } from '@/i18n';
 
 export interface NavItem {
     to: AppPath;
@@ -51,6 +52,20 @@ export const NAV_ITEMS: NavItem[] = [
         description: '外观、账号与设备',
     },
 ];
+
+const NAV_ENGLISH: Record<AppPath, readonly [label: string, description: string]> = {
+    '/': ['Dashboard', 'Sessions, connections, and results'],
+    '/processes': ['QQ sessions', 'Select and connect to a session'],
+    '/config': ['Bot connections', 'Set up bot connections'],
+    '/logs': ['Logs', 'Review connection results'],
+    '/debug': ['Debug tools', 'Test actions and troubleshoot'],
+    '/settings': ['Settings', 'Appearance, accounts, and devices'],
+};
+
+export function localizeNavItem(item: NavItem, t: Translate): NavItem {
+    const [label, description] = NAV_ENGLISH[item.to];
+    return { ...item, label: t(item.label, label), description: t(item.description, description) };
+}
 
 // These routes keep the layout editor and account settings reachable.
 export const PINNED_NAV: AppPath[] = ['/', '/settings'];
@@ -94,6 +109,7 @@ function NavReorderRow({
     onToggle: (id: string) => void;
     onMove: (direction: -1 | 1) => void;
 }) {
+    const t = useT();
     const controls = useDragControls();
     const Icon = meta.icon;
     const pinned = PINNED_NAV.includes(meta.to);
@@ -106,7 +122,7 @@ function NavReorderRow({
         >
             <button
                 type="button"
-                aria-label={`拖动排序：${meta.label}`}
+                aria-label={t(`拖动排序：${meta.label}`, `Drag to reorder: ${meta.label}`)}
                 className="workspace-icon-button touch-none text-muted-foreground"
                 onPointerDown={(event) => controls.start(event)}
             >
@@ -116,7 +132,7 @@ function NavReorderRow({
             <span className="min-w-0 flex-1 truncate text-sm">{meta.label}</span>
             <button
                 type="button"
-                aria-label={`上移${meta.label}`}
+                aria-label={t(`上移${meta.label}`, `Move ${meta.label} up`)}
                 className="workspace-icon-button"
                 disabled={first}
                 onClick={() => onMove(-1)}
@@ -125,7 +141,7 @@ function NavReorderRow({
             </button>
             <button
                 type="button"
-                aria-label={`下移${meta.label}`}
+                aria-label={t(`下移${meta.label}`, `Move ${meta.label} down`)}
                 className="workspace-icon-button"
                 disabled={last}
                 onClick={() => onMove(1)}
@@ -134,7 +150,7 @@ function NavReorderRow({
             </button>
             {pinned ? (
                 <span
-                    title="必选项，不可隐藏"
+                    title={t('必选项，不可隐藏', 'Required item; cannot be hidden')}
                     className="grid size-11 shrink-0 place-items-center text-muted-foreground"
                 >
                     <Lock className="size-3.5" />
@@ -143,7 +159,11 @@ function NavReorderRow({
                 <button
                     type="button"
                     onClick={() => onToggle(item.id)}
-                    aria-label={`${item.visible ? '隐藏' : '显示'}${meta.label}`}
+                    aria-label={
+                        item.visible
+                            ? t(`隐藏${meta.label}`, `Hide ${meta.label}`)
+                            : t(`显示${meta.label}`, `Show ${meta.label}`)
+                    }
                     className="workspace-icon-button"
                 >
                     {item.visible ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
@@ -154,6 +174,7 @@ function NavReorderRow({
 }
 
 export function NavigationDock() {
+    const t = useT();
     const pathname = useRouterState({ select: (state) => state.location.pathname });
     const { appearance, performance } = useTheme();
     const reduced = useReducedMotionConfig() || appearance.reduceMotion || appearance.disableMotion;
@@ -165,7 +186,7 @@ export function NavigationDock() {
         <div className="workspace-dock-anchor">
             <div className="workspace-dock-scene" style={{ maxWidth: dockWidth }}>
                 <nav
-                    aria-label="主导航"
+                    aria-label={t('主导航', 'Main navigation')}
                     data-ui-surface="chrome"
                     data-labels-pinned={appearance.sidebarPinned}
                     className="ui-glass workspace-dock"
@@ -196,24 +217,27 @@ export function NavigationDock() {
                         >
                             <span className="ui-nav-highlight workspace-dock-active" />
                         </motion.div>
-                        {orderedNav.map(({ to, label, icon: Icon, description }) => (
-                            <Link
-                                key={to}
-                                to={to}
-                                title={description}
-                                aria-current={pathname === to ? 'page' : undefined}
-                                className="ui-nav-item workspace-dock-link"
-                                data-press-scale=""
-                            >
-                                <Icon className="workspace-dock-icon size-4" />
-                                <span className="workspace-dock-copy">
-                                    <span className="workspace-dock-label">{label}</span>
-                                    <span className="workspace-dock-description">
-                                        {description}
+                        {orderedNav.map((item) => {
+                            const { to, label, icon: Icon, description } = localizeNavItem(item, t);
+                            return (
+                                <Link
+                                    key={to}
+                                    to={to}
+                                    title={description}
+                                    aria-current={pathname === to ? 'page' : undefined}
+                                    className="ui-nav-item workspace-dock-link"
+                                    data-press-scale=""
+                                >
+                                    <Icon className="workspace-dock-icon size-4 shrink-0" />
+                                    <span className="workspace-dock-copy max-w-full [&>span]:truncate">
+                                        <span className="workspace-dock-label">{label}</span>
+                                        <span className="workspace-dock-description">
+                                            {description}
+                                        </span>
                                     </span>
-                                </span>
-                            </Link>
-                        ))}
+                                </Link>
+                            );
+                        })}
                     </div>
                 </nav>
             </div>
@@ -222,6 +246,7 @@ export function NavigationDock() {
 }
 
 export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void }) {
+    const t = useT();
     const { updateInfo } = useAppState();
     const { appearance, setAppearance } = useTheme();
     const { reconciled, reorderNav, toggleNav, editing, setEditing } = useNavigationItems();
@@ -255,7 +280,9 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                     className="workspace-management-section"
                 >
                     <div className="workspace-section-heading">
-                        <h3 id="workspace-nav-settings-title">底栏导航</h3>
+                        <h3 id="workspace-nav-settings-title">
+                            {t('底栏导航', 'Navigation dock')}
+                        </h3>
                         <button
                             type="button"
                             onClick={() => setEditing(!editing)}
@@ -266,13 +293,16 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                             ) : (
                                 <Settings2 className="size-4" />
                             )}
-                            {editing ? '完成调整' : '调整导航'}
+                            {editing ? t('完成调整', 'Done') : t('调整导航', 'Edit navigation')}
                         </button>
                     </div>
                     {editing ? (
                         <>
                             <p className="workspace-management-note">
-                                拖动或使用箭头排序，眼睛图标调整显示。
+                                {t(
+                                    '拖动或使用箭头排序，眼睛图标调整显示。',
+                                    'Drag or use the arrows to reorder pages. Use the eye icons to show or hide them.',
+                                )}
                             </p>
                             <Reorder.Group
                                 axis="y"
@@ -286,7 +316,7 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                                         <NavReorderRow
                                             key={item.id}
                                             item={item}
-                                            meta={meta}
+                                            meta={localizeNavItem(meta, t)}
                                             first={index === 0}
                                             last={index === reconciled.length - 1}
                                             onToggle={toggleNav}
@@ -298,13 +328,16 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                         </>
                     ) : (
                         <p className="workspace-management-note">
-                            保留常用页面，其余页面仍可从这里打开。
+                            {t(
+                                '保留常用页面，其余页面仍可从这里打开。',
+                                'Keep your frequently used pages in the dock. You can still open the others here.',
+                            )}
                         </p>
                     )}
                     <button
                         type="button"
                         onClick={() => setAppearance({ sidebarPinned: !appearance.sidebarPinned })}
-                        aria-label="显示导航说明"
+                        aria-label={t('显示导航说明', 'Show navigation descriptions')}
                         aria-pressed={appearance.sidebarPinned}
                         className="workspace-text-button workspace-management-preference"
                     >
@@ -313,7 +346,7 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                         ) : (
                             <PinOff className="size-4" />
                         )}
-                        显示导航说明
+                        {t('显示导航说明', 'Show navigation descriptions')}
                     </button>
                 </section>
                 {hiddenNav.length > 0 && (
@@ -321,20 +354,23 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                         aria-labelledby="workspace-hidden-pages-title"
                         className="workspace-management-section"
                     >
-                        <h3 id="workspace-hidden-pages-title">隐藏的页面</h3>
-                        <nav aria-label="隐藏的页面">
-                            {hiddenNav.map(({ to, label, icon: Icon }) => (
-                                <Link
-                                    key={to}
-                                    to={to}
-                                    onClick={onItemClick}
-                                    className="workspace-management-link"
-                                >
-                                    <Icon className="size-4" />
-                                    <span>{label}</span>
-                                    <ChevronRight className="ml-auto size-3.5" />
-                                </Link>
-                            ))}
+                        <h3 id="workspace-hidden-pages-title">{t('隐藏的页面', 'Hidden pages')}</h3>
+                        <nav aria-label={t('隐藏的页面', 'Hidden pages')}>
+                            {hiddenNav.map((item) => {
+                                const { to, label, icon: Icon } = localizeNavItem(item, t);
+                                return (
+                                    <Link
+                                        key={to}
+                                        to={to}
+                                        onClick={onItemClick}
+                                        className="workspace-management-link"
+                                    >
+                                        <Icon className="size-4" />
+                                        <span>{label}</span>
+                                        <ChevronRight className="ml-auto size-3.5" />
+                                    </Link>
+                                );
+                            })}
                         </nav>
                     </section>
                 )}
@@ -342,7 +378,7 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                     aria-labelledby="workspace-layout-title"
                     className="workspace-management-section"
                 >
-                    <h3 id="workspace-layout-title">工作台布局</h3>
+                    <h3 id="workspace-layout-title">{t('工作台布局', 'Dashboard layout')}</h3>
                     <Link
                         to="/"
                         onClick={() => {
@@ -352,7 +388,7 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                         className="workspace-management-link"
                     >
                         <PanelsTopLeft className="size-4" />
-                        <span>编辑卡片布局</span>
+                        <span>{t('编辑卡片布局', 'Edit card layout')}</span>
                         <ChevronRight className="ml-auto size-3.5" />
                     </Link>
                 </section>
@@ -361,11 +397,14 @@ export function WorkspaceManagement({ onItemClick }: { onItemClick?: () => void 
                         to="/settings"
                         search={{ tab: 'about' }}
                         onClick={onItemClick}
-                        aria-label="有可用更新"
+                        aria-label={t('有可用更新', 'Update available')}
                         className="workspace-update-link"
                     >
                         <Sparkles className="size-4" />
-                        <span>有新版本{updateInfo.latest && ` · v${updateInfo.latest}`}</span>
+                        <span>
+                            {t('有新版本', 'New version available')}
+                            {updateInfo.latest && ` · v${updateInfo.latest}`}
+                        </span>
                     </Link>
                 )}
             </div>

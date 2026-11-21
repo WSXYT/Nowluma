@@ -6,6 +6,7 @@ import {
     developerCrashReducer,
 } from '../src/components/settings/developer-tools';
 import { ErrorPage } from '../src/components/pages/status-screens';
+import { LocaleProvider } from '../src/i18n';
 import { SETTINGS_TABS } from '../src/router';
 
 describe('developer settings tools', () => {
@@ -25,5 +26,22 @@ describe('developer settings tools', () => {
         expect(html).toContain('页面出错了');
         expect(html).toContain('重试');
         expect(html).toContain(DEVELOPER_CRASH_MESSAGE);
+    });
+
+    it('localizes the test exception without throwing before it is requested', () => {
+        expect(
+            renderToStaticMarkup(
+                <LocaleProvider fixed="en">
+                    <DeveloperCrashProbe requested={false} />
+                </LocaleProvider>,
+            ),
+        ).toBe('');
+        expect(() =>
+            renderToStaticMarkup(
+                <LocaleProvider fixed="en">
+                    <DeveloperCrashProbe requested />
+                </LocaleProvider>,
+            ),
+        ).toThrowError('WebUI crash test triggered by developer tools');
     });
 });

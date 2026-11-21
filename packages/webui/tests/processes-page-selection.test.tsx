@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProcessesPage } from '../src/components/pages/processes-page';
 import { ConfirmDialog } from '../src/components/confirm-dialog';
 import type { HookProcessInfo } from '../src/types';
+import type * as I18nModule from '../src/i18n';
 import { elements, hookHost } from './helpers/hook-host';
 
 const state = vi.hoisted(() => ({
@@ -15,6 +16,14 @@ const state = vi.hoisted(() => ({
     refresh: vi.fn(),
 }));
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+vi.mock('@/i18n', async (original) => {
+    const actual = await original<typeof I18nModule>();
+    return {
+        ...actual,
+        useT: () => actual.defaultTranslate,
+        useLocale: () => ({ locale: 'zh-CN' }),
+    };
+});
 vi.mock('motion/react', async (original) => ({
     ...(await original<typeof import('motion/react')>()),
     useReducedMotionConfig: () => state.reduced,
@@ -74,7 +83,6 @@ afterEach(() => {
 });
 
 describe('ProcessesPage PID selection', () => {
-
     it('requires a choice when more than one process is present', () => {
         expect(detail(render())).toBeUndefined();
         expect(state.load).not.toHaveBeenCalled();

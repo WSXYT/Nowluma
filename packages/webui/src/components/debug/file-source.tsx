@@ -5,6 +5,7 @@
 // feed that path to the action). Upload progress flows through the app-level
 // task registry so it survives tab switches.
 import { useId, useState } from 'react';
+import { useT } from '@/i18n';
 import { FileUp, Link2, Loader2, ServerCog, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useApi } from '@/lib/api';
@@ -59,6 +60,7 @@ export function FileSource({
     role?: FieldRole;
     placeholder?: string;
 }) {
+    const t = useT();
     const api = useApi();
     const { start, update, finish } = useDebugTasks();
     const [mode, setMode] = useState<Mode>('url');
@@ -75,7 +77,7 @@ export function FileSource({
         const ac = new AbortController();
         const taskId = start({
             kind: 'upload',
-            label: `上传 ${file.name}`,
+            label: t(`上传 ${file.name}`, `Upload ${file.name}`),
             progress: 0,
             cancel: () => ac.abort(),
         });
@@ -87,13 +89,13 @@ export function FileSource({
             });
 
             if (!res.path) {
-                throw new Error(res.message || '上传失败');
+                throw new Error(res.message || t('上传失败', 'Upload failed'));
             }
 
             onChange(res.path);
             finish(taskId, 'done', res.path);
         } catch (e) {
-            const msg = e instanceof Error ? e.message : '上传失败';
+            const msg = e instanceof Error ? e.message : t('上传失败', 'Upload failed');
             setUploadErr(msg);
             finish(taskId, ac.signal.aborted ? 'canceled' : 'failed', msg);
         } finally {
@@ -114,18 +116,19 @@ export function FileSource({
                     active={mode === 'server'}
                     onClick={() => setMode('server')}
                     icon={<ServerCog className="h-3.5 w-3.5" />}
-                    label="服务器路径"
+                    label={t('服务器路径', 'Server path')}
                 />
                 <Seg
                     active={mode === 'upload'}
                     onClick={() => setMode('upload')}
                     icon={<FileUp className="h-3.5 w-3.5" />}
-                    label="上传"
+                    label={t('上传', 'Upload')}
                 />
             </div>
 
             {mode === 'url' && (
                 <Input
+                    aria-label={t('文件 URL', 'File URL')}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={placeholder || 'https://…'}
@@ -135,11 +138,14 @@ export function FileSource({
             {mode === 'server' && (
                 <div className="flex flex-col gap-1">
                     <Input
+                        aria-label={t('服务器路径', 'Server path')}
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
                         placeholder="/path/on/server/file.jpg"
                     />
-                    <span className="text-xs text-muted-foreground">使用服务器上的文件路径</span>
+                    <span className="text-xs text-muted-foreground">
+                        {t('使用服务器上的文件路径', 'Use a file path on the server')}
+                    </span>
                 </div>
             )}
 
@@ -182,18 +188,20 @@ export function FileSource({
                     >
                         {uploading ? (
                             <>
-                                <Loader2 className="h-4 w-4 animate-spin" /> 上传中…
+                                <Loader2 className="h-4 w-4 animate-spin" />{' '}
+                                {t('上传中…', 'Uploading…')}
                             </>
                         ) : (
                             <>
-                                <FileUp className="h-4 w-4" /> 选择或拖入文件
+                                <FileUp className="h-4 w-4" />{' '}
+                                {t('选择或拖入文件', 'Choose or drop a file')}
                             </>
                         )}
                     </label>
                     {value && uploadName && !uploading && (
                         <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-meta">
                             <span className="truncate text-muted-foreground">
-                                已上传:{uploadName}
+                                {t(`已上传:${uploadName}`, `Uploaded: ${uploadName}`)}
                             </span>
                             <code
                                 className="ml-auto max-w-[55%] truncate font-mono text-muted-foreground/80"
@@ -203,6 +211,7 @@ export function FileSource({
                             </code>
                             <button
                                 type="button"
+                                aria-label={t('移除已上传文件', 'Remove uploaded file')}
                                 onClick={() => {
                                     onChange('');
                                     setUploadName(null);

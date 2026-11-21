@@ -1,3 +1,4 @@
+import { defaultTranslate, type Translate } from '@/i18n';
 import type { NetworkKind, OneBotNetworks } from '@/types';
 
 /** Endpoint-only copy: never include an access token, credentials or URL query parameters. */
@@ -5,6 +6,7 @@ export function connectionEndpoint(
     kind: NetworkKind,
     item: OneBotNetworks[NetworkKind][number],
     pageUrl: string,
+    t: Translate = defaultTranslate,
 ): string {
     let url: URL;
 
@@ -21,7 +23,7 @@ export function connectionEndpoint(
     }
 
     if (!['http:', 'https:', 'ws:', 'wss:'].includes(url.protocol)) {
-        throw new Error('无效的连接协议');
+        throw new Error(t('无效的连接协议', 'Invalid connection protocol'));
     }
 
     url.username = '';

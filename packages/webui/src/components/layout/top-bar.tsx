@@ -5,19 +5,35 @@ import { useRouterState } from '@tanstack/react-router';
 import { useDropdown } from '@/components/interior/dropdown';
 import { GlassMaterial } from '@/components/ui/glass-material';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageToggle } from '@/components/language-toggle';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { NAV_ITEMS } from '@/components/layout/sidebar';
+import { localizeNavItem, NAV_ITEMS } from '@/components/layout/sidebar';
 import { reconcileLayoutItems, useLayout } from '@/contexts/LayoutContext';
 import { useKiosk } from '@/contexts/KioskContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BRAND_LOGO_URL } from '@/brand';
 import { APP_NAME } from '@/types';
+import { useT, type Translate } from '@/i18n';
 
 export const TOPBAR_CATALOGUE: { id: string; label: string }[] = [
     { id: 'status', label: '控制台连接' },
     { id: 'theme', label: '主题菜单' },
     { id: 'kiosk', label: '展示模式' },
 ];
+
+const TOPBAR_ENGLISH: Partial<Record<string, string>> = {
+    status: 'Console connection',
+    theme: 'Theme menu',
+    kiosk: 'Presentation mode',
+};
+
+export function localizeTopbarItem(
+    item: { id: string; label: string },
+    t: Translate,
+): { id: string; label: string } {
+    const label = Object.hasOwn(TOPBAR_ENGLISH, item.id) ? TOPBAR_ENGLISH[item.id] : undefined;
+    return label ? { ...item, label: t(item.label, label) } : item;
+}
 
 interface TopBarProps {
     status: string;
@@ -26,9 +42,19 @@ interface TopBarProps {
 }
 
 export function TopBar({ status, onManageWorkspace, onLogout }: TopBarProps) {
+    const t = useT();
     const [confirmLogout, setConfirmLogout] = useState(false);
     const pathname = useRouterState({ select: (state) => state.location.pathname });
     const meta = NAV_ITEMS.find((item) => item.to === pathname);
+    const online = status === '已连接';
+    const statusLabel = online
+        ? t('已连接', 'Connected')
+        : status === '未授权'
+          ? t('未授权', 'Unauthorized')
+          : status === '未连接'
+            ? t('未连接', 'Disconnected')
+            : status;
+    const connectionLabel = t(`控制台连接：${statusLabel}`, `Console connection: ${statusLabel}`);
     const { topbarItems } = useLayout();
     const { enter: enterKiosk } = useKiosk();
     const { appearance, performance } = useTheme();
@@ -42,8 +68,10 @@ export function TopBar({ status, onManageWorkspace, onLogout }: TopBarProps) {
             .map((item) => item.id),
     );
     const actions = [
-        ...(shown.has('kiosk') ? [{ value: 'kiosk', label: '展示模式', icon: Expand }] : []),
-        { value: 'logout', label: '退出登录', icon: LogOut },
+        ...(shown.has('kiosk')
+            ? [{ value: 'kiosk', label: t('展示模式', 'Presentation mode'), icon: Expand }]
+            : []),
+        { value: 'logout', label: t('退出登录', 'Sign out'), icon: LogOut },
     ];
     const { open, activeIndex, rootRef, triggerProps, listProps, getItemProps } = useDropdown({
         items: actions,
@@ -58,32 +86,32 @@ export function TopBar({ status, onManageWorkspace, onLogout }: TopBarProps) {
 
     return (
         <header data-ui-surface="chrome" className="workspace-masthead">
-            <div className="workspace-masthead-inner">
+            <div className="workspace-masthead-inner max-sm:gap-2! max-sm:pl-[max(12px,env(safe-area-inset-left))]! max-sm:pr-[max(12px,env(safe-area-inset-right))]!">
                 <button
                     type="button"
                     onClick={() => document.getElementById('workspace-content')?.focus()}
                     className="workspace-skip-link"
                 >
-                    跳到页面内容
+                    {t('跳到页面内容', 'Skip to page content')}
                 </button>
                 <div className="workspace-masthead-brand" aria-label={APP_NAME}>
                     <img src={BRAND_LOGO_URL} alt="" className="size-7 rounded-md" />
                     <span>{APP_NAME}</span>
                 </div>
-                <div className="workspace-page-context">
+                <div className="workspace-page-context max-sm:pl-0!">
                     <div className="workspace-context-heading">
-                        <h1>{meta?.label ?? '控制台'}</h1>
+                        <h1>{meta ? localizeNavItem(meta, t).label : t('控制台', 'Console')}</h1>
                         {shown.has('status') && (
                             <span
                                 className="workspace-connection-state"
-                                data-online={status === '已连接'}
-                                title={`控制台连接：${status}`}
-                                aria-label={`控制台连接：${status}`}
+                                data-online={online}
+                                title={connectionLabel}
+                                aria-label={connectionLabel}
                                 role="status"
                             >
                                 <span aria-hidden="true" className="workspace-status-dot" />
                                 <span className="workspace-status-label">
-                                    {status === '已连接' ? '服务在线' : status}
+                                    {online ? t('服务在线', 'Server online') : statusLabel}
                                 </span>
                             </span>
                         )}
@@ -91,24 +119,25 @@ export function TopBar({ status, onManageWorkspace, onLogout }: TopBarProps) {
                 </div>
                 <div className="workspace-session-actions">
                     <div className="workspace-toolbar-scene">
+                        <LanguageToggle />
                         {shown.has('theme') && <ThemeToggle />}
                         <button
                             id="workspace-session-trigger"
                             type="button"
                             onClick={onManageWorkspace}
-                            aria-label="工作区管理"
-                            title="工作区管理"
+                            aria-label={t('工作区管理', 'Workspace management')}
+                            title={t('工作区管理', 'Workspace management')}
                             className="workspace-text-button"
                         >
                             <Settings2 className="size-4" />
-                            <span className="hidden sm:inline">工作区</span>
+                            <span className="hidden sm:inline">{t('工作区', 'Workspace')}</span>
                         </button>
                         <div ref={rootRef} className="workspace-more">
                             <button
                                 {...triggerProps}
-                                aria-label="更多操作"
+                                aria-label={t('更多操作', 'More actions')}
                                 aria-haspopup="menu"
-                                title="更多操作"
+                                title={t('更多操作', 'More actions')}
                                 className="ui-glass workspace-icon-button workspace-more-trigger"
                                 data-press-scale=""
                             >
@@ -136,7 +165,7 @@ export function TopBar({ status, onManageWorkspace, onLogout }: TopBarProps) {
                                         <ul
                                             {...listProps}
                                             role="menu"
-                                            aria-label="会话操作"
+                                            aria-label={t('会话操作', 'Session actions')}
                                             className="workspace-theme-options"
                                         >
                                             <motion.li
@@ -184,14 +213,18 @@ export function TopBar({ status, onManageWorkspace, onLogout }: TopBarProps) {
             <ConfirmDialog
                 open={confirmLogout}
                 onOpenChange={setConfirmLogout}
-                title="退出登录？"
-                description="当前会话将结束。下次进入时，需要再次输入访问密码。"
-                confirmText="退出登录"
+                title={t('退出登录？', 'Sign out?')}
+                description={t(
+                    '当前会话将结束。下次进入时，需要再次输入访问密码。',
+                    'This ends the current session. You will need to enter the access password again.',
+                )}
+                confirmText={t('退出登录', 'Sign out')}
+                cancelText={t('取消', 'Cancel')}
                 destructive
                 activity={{
-                    title: '正在退出登录',
-                    successTitle: '已退出登录',
-                    errorTitle: '退出登录失败',
+                    title: t('正在退出登录', 'Signing out'),
+                    successTitle: t('已退出登录', 'Signed out'),
+                    errorTitle: t('退出登录失败', 'Sign-out failed'),
                 }}
                 onConfirm={onLogout}
             />

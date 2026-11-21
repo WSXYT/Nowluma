@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InlineValidation } from '@/components/interior/inline-validation';
 import {
+    localizeRuleLabel,
     PasswordStrength,
     type PasswordRule as InteriorPasswordRule,
 } from '@/components/interior/password-strength';
@@ -11,6 +12,7 @@ import { PasswordVisibilityIcon } from '@/components/ui/password-visibility-icon
 import { actionErrorMessage, useActionFeedback } from '@/contexts/ActionFeedbackContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import { defaultTranslate, translator, useLocale, useT, type Translate } from '@/i18n';
 
 export interface PasswordRule {
     id: string;
@@ -25,24 +27,53 @@ const EMPTY_RULES: readonly PasswordRule[] = [
     { id: 'special', label: '包含特殊符号 (!@#$%…)', ok: false },
     { id: 'no-space', label: '不包含空格', ok: false },
 ];
-
 const STRENGTH_LABELS = ['未输入', '很弱', '较弱', '一般', '良好', '强'] as const;
 
+function passwordErrorMessage(message: string, t: Translate): string {
+    switch (message) {
+        case '当前密码不正确':
+            return t(message, 'Incorrect current password');
+        case '新密码不符合强度要求':
+            return t(message, 'The new password does not meet the strength requirements');
+        case '新密码不得与旧密码相同':
+            return t(message, 'The new password must differ from the current password');
+        case '请求格式错误':
+            return t(message, 'Invalid request format');
+        case '服务器未返回密码强度规则':
+            return t(message, 'The server did not return password strength rules');
+        case '密码强度接口返回了无效响应':
+            return t(message, 'The password strength endpoint returned an invalid response');
+        case '修改失败':
+        case '密码修改失败':
+            return t(message, 'Could not change the password');
+        case '网络错误':
+            return t(message, 'Network error');
+        case '未知错误':
+            return t(message, 'Unknown error');
+        default:
+            return message;
+    }
+}
+
 /** Shown under the new-password field only while the animated rule list is hidden. */
-export function passwordRequirementHint(options: {
-    focused: boolean;
-    value: string;
-    checked: boolean;
-    valid: boolean;
-    rules: readonly PasswordRule[];
-    checkError: string;
-}): string | null {
+export function passwordRequirementHint(
+    options: {
+        focused: boolean;
+        value: string;
+        checked: boolean;
+        valid: boolean;
+        rules: readonly PasswordRule[];
+        checkError: string;
+    },
+    t: Translate = defaultTranslate,
+): string | null {
     if (options.focused || options.value.length === 0) {
         return null;
     }
 
     if (options.checkError) {
-        return `密码强度校验失败：${options.checkError}`;
+        const detail = passwordErrorMessage(options.checkError, t);
+        return t(`密码强度校验失败：${detail}`, `Could not check password strength: ${detail}`);
     }
 
     if (!options.checked || options.valid) {
@@ -52,10 +83,11 @@ export function passwordRequirementHint(options: {
     const unmet = options.rules.filter((rule) => !rule.ok);
 
     if (unmet.length === 0) {
-        return '密码尚未满足全部要求';
+        return t('密码尚未满足全部要求', 'The password does not yet meet all requirements');
     }
 
-    return `仍需满足：${unmet.map((rule) => rule.label).join('、')}`;
+    const labels = unmet.map((rule) => localizeRuleLabel(rule, t)).join(t('、', ', '));
+    return t(`仍需满足：${labels}`, `Still required: ${labels}`);
 }
 
 export interface ChangePasswordFormProps {
@@ -105,10 +137,13 @@ export function ChangePasswordForm({
     onSuccess,
     onCancel,
     idPrefix = 'cpw',
-    submitLabel = '保存新密码',
+    submitLabel: customSubmitLabel,
     className,
     renderActions,
 }: ChangePasswordFormProps) {
+    const { language } = useLocale();
+    const t = translator(language);
+    const submitLabel = customSubmitLabel ?? t('保存新密码', 'Save new password');
     const rehearsing = mode === 'rehearsal';
     const carriesOld = rehearsing || knownOldPassword !== undefined;
     const { runAction } = useActionFeedback();
@@ -159,14 +194,18 @@ export function ChangePasswordForm({
         confirmMatches &&
         (rehearsing || effectiveOld !== newPassword);
     const canSubmit = canAttempt && valid;
-    const requirementHint = passwordRequirementHint({
-        focused: newPasswordFocused,
-        value: newPassword,
-        checked: checkedCurrentPassword,
-        valid,
-        rules: displayedRules,
-        checkError: strengthError,
-    });
+    const requirementHint = passwordRequirementHint(
+        {
+            focused: newPasswordFocused,
+            value: newPassword,
+            checked: checkedCurrentPassword,
+            valid,
+            rules: displayedRules,
+            checkError: strengthError,
+        },
+        t,
+    );
+    const strengthErrorDetail = passwordErrorMessage(strengthError, t);
 
     // Debounce the strength check so we don't slam the API on every keystroke.
     useEffect(() => {
@@ -226,12 +265,29 @@ export function ChangePasswordForm({
         try {
             const res = await runAction(
                 {
-                    title: rehearsing ? '正在验证密码设置步骤' : '正在更新访问密码',
-                    detail: rehearsing ? '演练内容不会保存' : '正在保存新密码并使其他会话失效',
-                    successTitle: rehearsing ? '密码设置演练已完成' : '访问密码已更新',
-                    successDetail: rehearsing ? '未修改真实访问密码' : '其他会话已失效',
-                    errorTitle: rehearsing ? '密码设置演练失败' : '访问密码更新失败',
-                    resultError: (result) => (result.success ? null : result.message || '修改失败'),
+                    title: rehearsing
+                        ? t('正在验证密码设置步骤', 'Checking password setup')
+                        : t('正在更新访问密码', 'Updating access password'),
+                    detail: rehearsing
+                        ? t('演练内容不会保存', 'Rehearsal input will not be saved')
+                        : t(
+                              '正在保存新密码并使其他会话失效',
+                              'Saving the new password and invalidating other sessions',
+                          ),
+                    successTitle: rehearsing
+                        ? t('密码设置演练已完成', 'Password setup rehearsal complete')
+                        : t('访问密码已更新', 'Access password updated'),
+                    successDetail: rehearsing
+                        ? t('未修改真实访问密码', 'The actual access password was not changed')
+                        : t('其他会话已失效', 'Other sessions were invalidated'),
+                    errorTitle: rehearsing
+                        ? t('密码设置演练失败', 'Password setup rehearsal failed')
+                        : t('访问密码更新失败', 'Could not update the access password'),
+                    errorDetail: (error) => passwordErrorMessage(actionErrorMessage(error), t),
+                    resultError: (result) =>
+                        result.success
+                            ? null
+                            : passwordErrorMessage(result.message || '修改失败', t),
                 },
                 () => submit(effectiveOld, newPassword),
             );
@@ -253,15 +309,21 @@ export function ChangePasswordForm({
             {!carriesOld && (
                 <InlineValidation
                     id={`${idPrefix}-old`}
-                    label="当前密码"
+                    label={t('当前密码', 'Current password')}
                     type={showOld ? 'text' : 'password'}
                     autoComplete="current-password"
                     spellCheck={false}
                     required
                     value={oldPassword}
                     onChange={setOldPassword}
-                    validate={(value) => (value.length > 0 ? null : '请输入当前密码')}
-                    hint="用于确认当前管理员身份"
+                    validationKey={language}
+                    validate={(value) =>
+                        value.length > 0 ? null : t('请输入当前密码', 'Enter your current password')
+                    }
+                    hint={t(
+                        '用于确认当前管理员身份',
+                        'Verifies the current administrator’s identity',
+                    )}
                     showValidIcon={false}
                     endAdornment={
                         <PasswordVisibilityButton
@@ -276,7 +338,7 @@ export function ChangePasswordForm({
             <div>
                 <InlineValidation
                     id={`${idPrefix}-new`}
-                    label="新密码"
+                    label={t('新密码', 'New password')}
                     type={showNew ? 'text' : 'password'}
                     autoComplete="new-password"
                     spellCheck={false}
@@ -285,15 +347,18 @@ export function ChangePasswordForm({
                     onChange={setNewPassword}
                     onFocus={() => setNewPasswordFocused(true)}
                     onBlur={() => setNewPasswordFocused(false)}
-                    validationKey={`${effectiveOld}\0${newPasswordFocused}\0${valid}\0${strengthError}\0${requirementHint ?? ''}`}
+                    validationKey={`${effectiveOld}\0${newPasswordFocused}\0${valid}\0${strengthError}\0${requirementHint ?? ''}\0${language}`}
                     reserveLines={2}
                     validate={(value) => {
                         if (value.length === 0) {
-                            return '请输入新密码';
+                            return t('请输入新密码', 'Enter a new password');
                         }
 
                         if (!rehearsing && value === effectiveOld) {
-                            return '新密码不能与当前密码相同';
+                            return t(
+                                '新密码不能与当前密码相同',
+                                'The new password must differ from the current password',
+                            );
                         }
 
                         return requirementHint;
@@ -317,10 +382,15 @@ export function ChangePasswordForm({
                         className="mt-1"
                         status={
                             checkingStrength ? (
-                                <span className="text-muted-foreground">正在校验密码强度…</span>
+                                <span className="text-muted-foreground">
+                                    {t('正在校验密码强度…', 'Checking password strength…')}
+                                </span>
                             ) : strengthError ? (
                                 <span role="alert" className="text-destructive">
-                                    密码强度校验失败：{strengthError}
+                                    {t(
+                                        `密码强度校验失败：${strengthErrorDetail}`,
+                                        `Could not check password strength: ${strengthErrorDetail}`,
+                                    )}
                                 </span>
                             ) : null
                         }
@@ -330,26 +400,26 @@ export function ChangePasswordForm({
 
             <InlineValidation
                 id={`${idPrefix}-confirm`}
-                label="确认新密码"
+                label={t('确认新密码', 'Confirm new password')}
                 type={showNew ? 'text' : 'password'}
                 autoComplete="new-password"
                 spellCheck={false}
                 required
                 value={confirmPassword}
                 onChange={setConfirmPassword}
-                validationKey={newPassword}
+                validationKey={`${newPassword}\0${language}`}
                 validate={(value) => {
                     if (value.length === 0) {
-                        return '请再次输入新密码';
+                        return t('请再次输入新密码', 'Enter the new password again');
                     }
 
                     if (value !== newPassword) {
-                        return '两次输入的密码不一致';
+                        return t('两次输入的密码不一致', 'The two passwords do not match');
                     }
 
                     return null;
                 }}
-                hint="需要与新密码完全一致"
+                hint={t('需要与新密码完全一致', 'Must match the new password exactly')}
                 endAdornment={
                     <PasswordVisibilityButton
                         visible={showNew}
@@ -367,7 +437,7 @@ export function ChangePasswordForm({
                         exit={{ opacity: 0 }}
                         className="rounded-md bg-destructive/10 px-3 py-2 text-center text-xs text-destructive"
                     >
-                        {error}
+                        {passwordErrorMessage(error, t)}
                     </motion.p>
                 )}
             </AnimatePresence>
@@ -378,13 +448,14 @@ export function ChangePasswordForm({
                 <div className="flex items-center gap-2 pt-1">
                     {onCancel && (
                         <Button type="button" variant="ghost" onClick={onCancel} className="h-10">
-                            取消
+                            {t('取消', 'Cancel')}
                         </Button>
                     )}
                     <Button type="submit" disabled={!canAttempt} className="ml-auto h-10">
                         {submitting ? (
                             <>
-                                <Loader2 className="size-4 animate-spin" /> 提交中…
+                                <Loader2 className="size-4 animate-spin" />{' '}
+                                {t('提交中…', 'Submitting…')}
                             </>
                         ) : (
                             submitLabel
@@ -405,11 +476,12 @@ function PasswordVisibilityButton({
     reduceMotion: boolean;
     onToggle: () => void;
 }) {
+    const t = useT();
     return (
         <button
             type="button"
             onClick={onToggle}
-            aria-label={visible ? '隐藏密码' : '显示密码'}
+            aria-label={visible ? t('隐藏密码', 'Hide password') : t('显示密码', 'Show password')}
             className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary sm:size-7"
         >
             <PasswordVisibilityIcon visible={visible} reduceMotion={reduceMotion} />

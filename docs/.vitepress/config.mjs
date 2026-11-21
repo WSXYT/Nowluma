@@ -110,7 +110,7 @@ export default defineConfig(async () => {
           },
         },
       },
-      socialLinks: [{ icon: 'github', link: 'https://github.com/wsxyt/Nowluma' }],
+      socialLinks: [{ icon: 'github', link: 'https://github.com/NowLuma/NowLuma' }],
       footer: { message: 'Nowluma source: GPL-3.0-only · See LICENSE and LICENSING.md' },
     },
   };

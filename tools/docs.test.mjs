@@ -23,6 +23,10 @@ test('tutorial routes accept only the chapter and language allowlists', () => {
         tutorialUrl(DOCS_BASE, chapter, lang),
         `${DOCS_BASE}demo/?tutorial=${chapter}&lang=${lang}&embed=1`,
       );
+      assert.equal(
+        tutorialUrl(DOCS_BASE, chapter, lang, { embedded: false }),
+        `${DOCS_BASE}demo/?tutorial=${chapter}&lang=${lang}`,
+      );
     }
   }
   assert.deepEqual(tutorialForPage('en/logs.md'), { chapter: 'logs', lang: 'en' });
@@ -87,7 +91,7 @@ test('section requests reject untrusted windows, origins, fields and step IDs', 
 });
 
 test(
-  'real VitePress output preserves base paths, anchors and one safe inline tutorial',
+  'real VitePress output preserves base paths and anchors without loading the simulator',
   { timeout: 180000 },
   async (t) => {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nowluma-vitepress-'));
@@ -98,32 +102,59 @@ test(
       checkSite({ outDir, withDemo: true }).some((problem) => problem.includes('demo route')),
     );
 
+    const demo = path.join(outDir, 'demo/index.html');
+    fs.mkdirSync(path.dirname(demo));
+    const policies = (forms, connections) =>
+      `<!doctype html><meta http-equiv="Content-Security-Policy" content="${forms}; ${connections}">`;
+    fs.writeFileSync(demo, policies("form-action 'none'", "connect-src 'none'"));
+    assert.deepEqual(checkSite({ outDir, withDemo: true }), []);
+    for (const [forms, connections, problem] of [
+      ["form-action 'self'; form-action 'none'", "connect-src 'none'", "form-action 'none'"],
+      ["form-action 'none'", "connect-src 'self'", "connect-src 'none'"],
+    ]) {
+      fs.writeFileSync(demo, policies(forms, connections));
+      assert.ok(
+        checkSite({ outDir, withDemo: true }).some((message) => message.includes(problem)),
+        problem,
+      );
+    }
+
     const file = path.join(outDir, 'en/first-run.html');
     const original = fs.readFileSync(file, 'utf8');
     const mutations = [
       {
+        html: original.replace('</section>', '<iframe src="about:blank"></iframe></section>'),
+        problem: 'must not load before activation',
+      },
+      {
+        html: original.replace('data-tutorial-expanded="false"', 'data-tutorial-expanded="true"'),
+        problem: 'expected a collapsed tutorial launcher',
+      },
+      {
         html: original.replace(
-          /(<iframe\b[^>]*\bsrc=")[^"]*"/,
-          '$1/demo/?tutorial=first-run&amp;lang=en&amp;embed=1"',
+          'aria-controls="tutorial-simulator-stage"',
+          'aria-controls="missing-stage"',
         ),
-        problem: 'base path',
+        problem: 'accessible load control',
       },
       {
-        html: original.replace(/(<iframe\b[^>]*\bsrc=")[^"]*"/, '$1https://example.invalid/demo/"'),
-        problem: 'tutorial iframe must use exactly',
+        html: original.replace(
+          /(<button\b[^>]*\bdata-tutorial-load[^>]*?) disabled(?=[\s>])/,
+          '$1',
+        ),
+        problem: 'disabled until hydration',
       },
       {
-        html: original.replace(/(<iframe\b[^>]*\bsandbox=")/, '$1allow-top-navigation '),
-        problem: 'unsafe sandbox',
-      },
-      {
-        html: original.replace('</iframe>', '</iframe><iframe src="about:blank"></iframe>'),
-        problem: 'expected one tutorial iframe',
+        html: original.replace(
+          /href="[^"]+demo\/\?tutorial=first-run[^"]*"/,
+          'href="https://example.invalid/demo/"',
+        ),
+        problem: 'simulator full-view link',
       },
     ];
     try {
       for (const mutation of mutations) {
-        assert.notEqual(mutation.html, original, 'the regression must modify an actual iframe');
+        assert.notEqual(mutation.html, original, 'the regression must change the actual launcher');
         fs.writeFileSync(file, mutation.html);
         assert.ok(
           checkSite({ outDir }).some((problem) => problem.includes(mutation.problem)),

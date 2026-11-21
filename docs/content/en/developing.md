@@ -80,9 +80,9 @@ pnpm docs:preview     # Preview the built site
 node --test tools/docs.test.mjs
 ```
 
-- Keep chapter links valid under `/Nowluma/`; use `pnpm docs:dev` or a built HTTP preview rather than `file://` for interactive features.
+- Keep chapter links valid under `/NowLuma/`; use `pnpm docs:dev` or a built HTTP preview rather than `file://` for interactive features.
 - Update every cross-chapter link when renaming a heading; never weaken `tools/check-docs.mjs` to pass.
-- Quote actual UI labels from source; the English guide explains the same controls without inventing a separate UI language.
+- Quote the actual localized UI labels; keep tutorial targets independent of the language of the label.
 - No pixel coordinates, unverified screenshots or FPS promises.
 
 ## Change boundaries

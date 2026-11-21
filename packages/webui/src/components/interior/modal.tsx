@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
+import { useT } from '@/i18n';
 
 const EASE = [0.23, 1, 0.32, 1] as const;
 
@@ -410,7 +411,7 @@ export function Modal({
     description,
     children,
     footer,
-    closeLabel = 'Close dialog',
+    closeLabel,
     showClose = true,
     closeOnEscape = true,
     closeOnBackdrop = true,
@@ -422,6 +423,7 @@ export function Modal({
     className = '',
 }: ModalProps) {
     const reduced = useReducedMotionConfig();
+    const t = useT();
     const [viewport, setViewport] = useState({ top: 0, height: '100%', alignStart: false });
 
     useEffect(() => {
@@ -559,7 +561,7 @@ export function Modal({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    aria-label={closeLabel}
+                                    aria-label={closeLabel ?? t('关闭对话框', 'Close dialog')}
                                     className="-mr-1 -mt-1 grid size-7 shrink-0 place-items-center rounded-[7px] text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:bg-primary/[0.06] focus-visible:text-foreground focus-visible:shadow-[inset_0_0_0_1px_var(--ring)]"
                                 >
                                     {CLOSE_ICON}

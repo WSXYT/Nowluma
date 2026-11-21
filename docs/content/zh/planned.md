@@ -25,7 +25,7 @@ _图：示例账号的选择界面；重写内核仍不可用。_
 | 显示效果              | 已实现                                                      | 动效与玻璃质量手动选择；不承诺帧率或省电                                  |
 | QQ 桌面入口           | 由服务器运行时能力决定                                      | 仅应用同源网关的 Linux 服务器显示；Windows 原生和旧服务器不显示           |
 | 自动接入              | 已实现                                                      | 本地 QQ 登录、真实 UIN 已识别且已有当前风险版本确认；手动卸载后不自动恢复 |
-| 文档与教学            | VitePress 双语文档与逐章内嵌引导                            | 以[公开站点](https://wsxyt.github.io/Nowluma/)与对应 Pages 部署为准       |
+| 文档与教学            | VitePress 双语文档与按需加载的章节引导                                    | 以[公开站点](https://nowluma.github.io/NowLuma/)与对应 Pages 部署为准       |
 | 真实 QQ 登录/消息投递 | 需要你的账号                                                | CI 不证明免扫码、送达或长期稳定                                           |
 | 发行与签名            | 已发布 x64 RC、校验文件与 GHCR 版本镜像；Windows exe 未签名 | 仅列出发行页实际提供的资产，不把构建来源当账号验收                        |
 
@@ -49,7 +49,7 @@ _图：示例账号的选择界面；重写内核仍不可用。_
 
 平台支持不等于账号一定可用；QQ 服务端会话、权限、桌面环境和网络都可能影响结果。
 
-每次发行以[对应源码的 CI](https://github.com/WSXYT/Nowluma/actions)和[发行产物](https://github.com/WSXYT/Nowluma/releases)为准；历史通过记录不替代当前账号登录、桌面或消息投递验收。
+每次发行以[对应源码的 CI](https://github.com/NowLuma/NowLuma/actions)和[发行产物](https://github.com/NowLuma/NowLuma/releases)为准；历史通过记录不替代当前账号登录、桌面或消息投递验收。
 
 ## 发行与更新
 
@@ -64,8 +64,8 @@ _图：示例账号的选择界面；重写内核仍不可用。_
 
 ## 文档站点
 
-- 18 章 × 2 语言，静态构建为 `/Nowluma/` 基路径和相对 `/demo/`。
-- 地址是 `https://wsxyt.github.io/Nowluma/`；是否已经发布以维护者实际部署为准，文档不伪造上线状态。
+- 18 章 × 2 语言，静态构建为 `/NowLuma/` 基路径和相对 `/demo/`。
+- [公开文档](https://nowluma.github.io/NowLuma/)由项目的 Pages 部署提供。
 - `/demo/` 只在构建包含模拟器时存在，使用模拟数据，不连接真实 QQ。
 
 ## 性能与外观

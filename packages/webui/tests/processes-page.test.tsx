@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProcessesPage } from '../src/components/pages/processes-page';
+import { LocaleProvider, type Language } from '../src/i18n';
 import type { HookProcessInfo } from '../src/types';
 
 const state = vi.hoisted(() => ({
@@ -35,6 +36,7 @@ vi.mock('@/components/confirm-dialog', () => ({ ConfirmDialog: () => null }));
 
 beforeEach(() =>
     Object.assign(state, {
+        processList: [],
         ready: true,
         error: '',
         operation: null,
@@ -43,7 +45,7 @@ beforeEach(() =>
     }),
 );
 
-function renderProcess(overrides: Partial<HookProcessInfo>) {
+function renderProcess(overrides: Partial<HookProcessInfo>, language: Language = 'zh') {
     state.processList = [
         {
             pid: 4242,
@@ -60,10 +62,57 @@ function renderProcess(overrides: Partial<HookProcessInfo>) {
             ...overrides,
         },
     ];
-    return renderToStaticMarkup(<ProcessesPage />);
+    return renderToStaticMarkup(
+        <LocaleProvider fixed={language}>
+            <ProcessesPage />
+        </LocaleProvider>,
+    );
 }
 
 describe('process account labels', () => {
+    it.each(['zh', 'en'] as const)(
+        'marks only the selected process and applicable action in %s',
+        (language) => {
+            const available = renderProcess({}, language);
+            expect(available).toMatch(/<section[^>]*data-tutorial-control="process-detail"/);
+            expect(available).toMatch(/<button[^>]*data-tutorial-control="process-load"/);
+            expect(available).not.toContain('data-tutorial-control="process-unload"');
+
+            const injected = renderProcess({ injected: true }, language);
+            expect(injected).toMatch(/<button[^>]*data-tutorial-control="process-unload"/);
+            expect(injected).not.toContain('data-tutorial-control="process-load"');
+
+            state.processList = [state.processList[0], { ...state.processList[0], pid: 4243 }];
+            const unselected = renderToStaticMarkup(
+                <LocaleProvider fixed={language}>
+                    <ProcessesPage />
+                </LocaleProvider>,
+            );
+            expect(unselected).not.toContain('data-tutorial-control="process-detail"');
+        },
+    );
+
+    it('renders English controls and preserves the original process identity and error', () => {
+        state.error = '读取超时 (E_READ)';
+        const html = renderProcess(
+            {
+                name: 'QQ.exe',
+                account: { uin: '10001', nickname: '测试号' },
+                error: '原始错误 (E_PIPE)',
+            },
+            'en',
+        );
+        expect(html).toContain('QQ processes');
+        expect(html).toContain('Select process PID 4242, QQ 10001');
+        expect(html).toContain('Detected locally; sign-in not confirmed');
+        expect(html).toContain('Load Nowluma into this PID');
+        expect(html).toContain(
+            '读取超时 (E_READ) Showing the last successfully loaded process status.',
+        );
+        expect(html).toContain('原始错误 (E_PIPE)');
+        expect(html).toContain('测试号');
+    });
+
     it('does not label an unidentified process as signed out', () => {
         const markup = renderProcess({});
         expect(markup).toContain('PID 4242');

@@ -6,6 +6,7 @@
 // in the app-level task registry). Every call lands in localStorage history
 // with one-click replay. Responses render in a collapsible JsonTree.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useT } from '@/i18n';
 import { motion, useReducedMotionConfig } from 'motion/react';
 import {
     AlertTriangle,
@@ -65,6 +66,7 @@ export function ActionTester({
     presetAction?: { name: string; nonce: number };
     onInvokingChange?: (invoking: boolean) => void;
 }) {
+    const t = useT();
     const reduced = useReducedMotionConfig();
     const api = useApi();
     const tasks = useDebugTasks();
@@ -96,7 +98,7 @@ export function ActionTester({
             setUin(accounts[0].uin);
         }
     }, [accounts, uin]);
-    // Prefill from the API browser's 试一下 (nonce lets the same action re-trigger).
+    // Prefill from the API browser’s Try action button (nonce lets the same action re-trigger).
     useEffect(() => {
         if (presetAction && !invokingRef.current) {
             setActionName(presetAction.name);
@@ -116,14 +118,14 @@ export function ActionTester({
     const accountOptions = useMemo(
         () =>
             accounts.length === 0
-                ? [{ value: '', label: '(无在线账号)' }]
+                ? [{ value: '', label: t('(无在线账号)', '(No online accounts)') }]
                 : accounts.map((a) => ({
                       value: a.uin,
                       label: a.nickname || a.uin,
                       sub: a.nickname ? a.uin : undefined,
                       avatar: qqAvatarUrl(a.uin),
                   })),
-        [accounts],
+        [accounts, t],
     );
 
     const actionOptions = useMemo(
@@ -138,18 +140,18 @@ export function ActionTester({
             try {
                 parsed = JSON.parse(rawJson || '{}');
             } catch {
-                return { __error: '参数 JSON 格式无效' };
+                return { __error: t('参数 JSON 格式无效', 'Invalid parameter JSON') };
             }
 
             if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-                return { __error: '参数必须是 JSON 对象' };
+                return { __error: t('参数必须是 JSON 对象', 'Parameters must be a JSON object') };
             }
 
             return parsed as Record<string, unknown>;
         }
 
         try {
-            return buildActionParams(doc?.params ?? [], fields);
+            return buildActionParams(doc?.params ?? [], fields, t);
         } catch (error) {
             return { __error: error instanceof Error ? error.message : String(error) };
         }
@@ -161,12 +163,12 @@ export function ActionTester({
         }
 
         if (!uin) {
-            setResult({ error: '请选择账号' });
+            setResult({ error: t('请选择账号', 'Select an account') });
             return;
         }
 
         if (!actionName.trim()) {
-            setResult({ error: '请选择或输入接口名称' });
+            setResult({ error: t('请选择或输入接口名称', 'Select or enter an action name') });
             return;
         }
 
@@ -238,7 +240,12 @@ export function ActionTester({
                 setResult(
                     ok || term?.status === 'failed'
                         ? term
-                        : { error: '流已结束，但未收到完成响应' },
+                        : {
+                              error: t(
+                                  '流已结束，但未收到完成响应',
+                                  'The stream ended without a completion response',
+                              ),
+                          },
                 );
                 tasks.finish(taskId, ok ? 'done' : 'failed');
                 setHistory(
@@ -254,7 +261,8 @@ export function ActionTester({
                 );
             } catch (e) {
                 const aborted = ac.signal.aborted;
-                const msg = e instanceof Error ? e.message : '流式调用失败';
+                const msg =
+                    e instanceof Error ? e.message : t('流式调用失败', 'Streaming action failed');
 
                 if (!aborted) {
                     setResult({ error: msg });
@@ -295,7 +303,7 @@ export function ActionTester({
                 }),
             );
         } catch (e) {
-            setResult({ error: e instanceof Error ? e.message : '调用失败' });
+            setResult({ error: e instanceof Error ? e.message : t('调用失败', 'Action failed') });
             setHistory(
                 pushHistory({
                     at: startedAt,
@@ -340,14 +348,15 @@ export function ActionTester({
     };
 
     const resultFailed = !!result && ('error' in result || result.status === 'failed');
+    const runLabel = t(isStream ? '运行流式调用' : '运行调用', 'Run action');
 
     return (
         <div className="cp-debug-workbench">
             <div className="cp-debug-context relative z-30 flex min-w-0 flex-col gap-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="账号">
+                    <Field label={t('账号', 'Account')}>
                         <Picker
-                            ariaLabel="选择账号"
+                            ariaLabel={t('选择账号', 'Select account')}
                             value={uin}
                             onChange={(nextUin) => {
                                 if (invokingRef.current || nextUin === uin) {
@@ -359,14 +368,20 @@ export function ActionTester({
                                 setFrames([]);
                             }}
                             options={accountOptions}
-                            placeholder="选择账号…"
+                            placeholder={t('选择账号…', 'Select account…')}
                             validateRaw={() => false}
                             disabled={accounts.length === 0 || invoking}
                         />
                     </Field>
-                    <Field label="接口">
+                    <div
+                        className="flex min-w-0 flex-col gap-1.5"
+                        data-tutorial-control="debug-action"
+                    >
+                        <span className="text-xs font-medium text-muted-foreground">
+                            {t('接口', 'Action')}
+                        </span>
                         <Picker
-                            ariaLabel="选择接口"
+                            ariaLabel={t('选择接口', 'Select action')}
                             value={actionName}
                             onChange={(v) => {
                                 if (invokingRef.current) {
@@ -379,27 +394,28 @@ export function ActionTester({
                                 setFrames([]);
                             }}
                             options={actionOptions}
-                            placeholder="搜索接口…"
+                            placeholder={t('搜索接口…', 'Select action')}
                             validateRaw={(s) => s.trim().length > 0}
                             disabled={invoking}
                         />
-                    </Field>
+                    </div>
                 </div>
 
                 {doc && (
                     <div className="-mt-1 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
                         {doc.readOnly ? (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                                <ShieldCheck className="h-3 w-3" /> 只读
+                                <ShieldCheck className="h-3 w-3" /> {t('只读', 'Read-only')}
                             </span>
                         ) : (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-warning">
-                                <AlertTriangle className="h-3.5 w-3.5" /> 有副作用
+                                <AlertTriangle className="h-3.5 w-3.5" />{' '}
+                                {t('有副作用', 'Has side effects')}
                             </span>
                         )}
                         {isStream && (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                <Zap className="h-3 w-3" /> 流式
+                                <Zap className="h-3 w-3" /> {t('流式', 'Streaming')}
                             </span>
                         )}
                         <span>
@@ -407,7 +423,7 @@ export function ActionTester({
                             {doc.returns ? (
                                 <>
                                     {' '}
-                                    · 返回{' '}
+                                    {t('· 返回 ', '· Returns ')}
                                     <code className="font-mono text-meta">{doc.returns}</code>
                                 </>
                             ) : null}
@@ -425,15 +441,18 @@ export function ActionTester({
             >
                 <div className="flex items-center gap-2.5">
                     <Braces className="size-4 text-muted-foreground" />
-                    <h2 className="text-base font-semibold">请求参数</h2>
+                    <h2 className="text-base font-semibold">
+                        {t('请求参数', 'Request parameters')}
+                    </h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button
                         variant="glass"
                         size="sm"
                         onClick={onExecute}
+                        data-tutorial-control="debug-run"
                         disabled={invoking}
-                        aria-label={isStream ? '运行流式调用' : '运行调用'}
+                        aria-label={runLabel}
                     >
                         {invoking ? (
                             <Loader2 className="size-4 animate-spin" />
@@ -442,7 +461,7 @@ export function ActionTester({
                         ) : (
                             <Play className="optical-forward size-4" />
                         )}
-                        {invoking ? '运行中…' : isStream ? '运行流式调用' : '运行调用'}
+                        {invoking ? t('运行中…', 'Running…') : runLabel}
                     </Button>
                     {invoking && isStream && streamAbort.current && (
                         <Button
@@ -450,7 +469,7 @@ export function ActionTester({
                             size="sm"
                             onClick={() => streamAbort.current?.abort()}
                         >
-                            取消
+                            {t('取消', 'Cancel')}
                         </Button>
                     )}
                 </div>
@@ -462,17 +481,24 @@ export function ActionTester({
                 >
                     <div className="cp-inline-notice text-warning">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        <span>写入类调用会直接影响当前账号。</span>
+                        <span>
+                            {t(
+                                '写入类调用会直接影响当前账号。',
+                                'Write actions affect the selected account directly.',
+                            )}
+                        </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">参数</span>
+                        <span className="text-xs font-medium text-muted-foreground">
+                            {t('参数', 'Parameters')}
+                        </span>
                         <Segmented
-                            label="参数编辑方式"
+                            label={t('参数编辑方式', 'Parameter editing mode')}
                             value={effectiveMode}
                             onChange={setParamMode}
                             options={[
-                                { value: 'form', label: '表单' },
+                                { value: 'form', label: t('表单', 'Form') },
                                 { value: 'json', label: 'JSON' },
                             ]}
                         />
@@ -480,7 +506,7 @@ export function ActionTester({
 
                     {effectiveMode === 'json' ? (
                         <Textarea
-                            aria-label="参数 JSON"
+                            aria-label={t('参数 JSON', 'Parameter JSON')}
                             className="min-h-40 rounded-[4px] font-mono text-sm"
                             value={rawJson}
                             onChange={(e) => setRawJson(e.target.value)}
@@ -489,7 +515,9 @@ export function ActionTester({
                     ) : (
                         <div className="flex flex-col gap-3.5">
                             {doc!.params.length === 0 && (
-                                <p className="text-[12px] text-muted-foreground">该接口无参数。</p>
+                                <p className="text-[12px] text-muted-foreground">
+                                    {t('该接口无参数。', 'This action takes no parameters.')}
+                                </p>
                             )}
                             {doc!.params.map((p) => (
                                 <Field
@@ -499,7 +527,7 @@ export function ActionTester({
                                             {p.name}
                                             <span className="ml-1 font-normal text-muted-foreground/70">
                                                 {p.type}
-                                                {p.required ? ' · 必填' : ''}
+                                                {p.required ? t(' · 必填', ' · required') : ''}
                                             </span>
                                         </>
                                     }
@@ -537,7 +565,10 @@ export function ActionTester({
                             ))}
                             {doc!.invariants && doc!.invariants.length > 0 && (
                                 <p className="text-xs text-muted-foreground/70">
-                                    约束:{doc!.invariants.join('；')}
+                                    {t(
+                                        `约束:${doc!.invariants.join('；')}`,
+                                        `Constraints: ${doc!.invariants.join('; ')}`,
+                                    )}
                                 </p>
                             )}
                         </div>
@@ -553,14 +584,16 @@ export function ActionTester({
                 className="cp-panel cp-debug-section flex min-w-0 flex-col gap-4"
             >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
-                    <span className="text-xs font-medium text-muted-foreground">运行结果</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                        {t('运行结果', 'Result')}
+                    </span>
                     <button
                         type="button"
                         onClick={() => setShowHistory((v) => !v)}
                         aria-pressed={showHistory}
                         className="cp-control inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
-                        <History className="h-3.5 w-3.5" /> 历史{' '}
+                        <History className="h-3.5 w-3.5" /> {t('历史 ', 'History ')}
                         {history.length > 0 && (
                             <span className="tabular-nums">{history.length}</span>
                         )}
@@ -574,7 +607,7 @@ export function ActionTester({
                         <>
                             <div className="flex items-center justify-between">
                                 <h3 className="text-[15px] font-semibold tracking-tight">
-                                    调用历史
+                                    {t('调用历史', 'Action history')}
                                 </h3>
                                 {history.length > 0 && (
                                     <button
@@ -582,13 +615,15 @@ export function ActionTester({
                                         onClick={() => setConfirmClearHistory(true)}
                                         className="cp-control inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
                                     >
-                                        <Trash2 className="h-3.5 w-3.5" /> 清空
+                                        <Trash2 className="h-3.5 w-3.5" /> {t('清空', 'Clear')}
                                     </button>
                                 )}
                             </div>
                             <div className="flex min-w-0 flex-col">
                                 {history.length === 0 ? (
-                                    <p className="py-8 text-sm text-muted-foreground">暂无历史</p>
+                                    <p className="py-8 text-sm text-muted-foreground">
+                                        {t('暂无历史', 'No history')}
+                                    </p>
                                 ) : (
                                     history.map((rec) => (
                                         <button
@@ -622,7 +657,9 @@ export function ActionTester({
                         <>
                             <div className="flex items-center gap-2">
                                 <h3 className="text-[15px] font-semibold tracking-tight">
-                                    {isStream ? '实时帧' : '响应内容'}
+                                    {isStream
+                                        ? t('实时帧', 'Stream frames')
+                                        : t('响应内容', 'Response body')}
                                 </h3>
                                 {result && (
                                     <span
@@ -631,7 +668,9 @@ export function ActionTester({
                                             resultFailed ? 'text-destructive' : 'text-success',
                                         )}
                                     >
-                                        {resultFailed ? '调用失败' : '调用完成'}
+                                        {resultFailed
+                                            ? t('调用失败', 'Action failed')
+                                            : t('调用完成', 'Action completed')}
                                         {!('error' in result) &&
                                         resultFailed &&
                                         (result.message || result.wording)
@@ -643,7 +682,10 @@ export function ActionTester({
                             {frames.length > 0 && (
                                 <div className="flex min-w-0 flex-col gap-1.5">
                                     <span className="text-xs text-muted-foreground tabular-nums">
-                                        {frames.length} 帧
+                                        {t(
+                                            `${frames.length} 帧`,
+                                            `${frames.length} ${frames.length === 1 ? 'frame' : 'frames'}`,
+                                        )}
                                     </span>
                                     {frames.map((f, i) => {
                                         // On a failed frame the action's `data` is replaced with an
@@ -682,7 +724,10 @@ export function ActionTester({
                             )}
                             {!result && frames.length === 0 && (
                                 <p className="py-8 text-sm text-muted-foreground">
-                                    执行后在此查看结果
+                                    {t(
+                                        '执行后在此查看结果',
+                                        'Run an action to see its result here',
+                                    )}
                                 </p>
                             )}
                         </>
@@ -693,25 +738,36 @@ export function ActionTester({
             <ConfirmDialog
                 open={confirmOpen}
                 onOpenChange={setConfirmOpen}
-                title="确认执行破坏性操作"
+                title={t('确认执行破坏性操作', 'Confirm destructive action')}
                 description={
                     <>
-                        即将以账号 <code className="font-mono text-foreground">{uin}</code> 执行{' '}
-                        <code className="font-mono text-foreground">{actionName}</code>，该操作会
-                        <strong className="text-foreground">真实生效且通常不可撤销</strong>
-                        。确认继续？
+                        {t('即将以账号 ', 'About to use account ')}
+                        <code className="font-mono text-foreground">{uin}</code>
+                        {t(' 执行 ', ' to run ')}
+                        <code className="font-mono text-foreground">{actionName}</code>
+                        {t('，该操作会', '; the action will ')}
+                        <strong className="text-foreground">
+                            {t(
+                                '真实生效且通常不可撤销',
+                                'take effect immediately and usually cannot be undone',
+                            )}
+                        </strong>
+                        {t('。确认继续？', '. Continue?')}
                     </>
                 }
-                confirmText="确认执行"
+                confirmText={t('确认执行', 'Confirm action')}
                 destructive
                 onConfirm={runInvoke}
             />
             <ConfirmDialog
                 open={confirmClearHistory}
                 onOpenChange={setConfirmClearHistory}
-                title="清空调用历史？"
-                description="仅移除此浏览器保存的调用历史，不会撤销已经执行的接口。"
-                confirmText="清空历史"
+                title={t('清空调用历史？', 'Clear action history?')}
+                description={t(
+                    '仅移除此浏览器保存的调用历史，不会撤销已经执行的接口。',
+                    'This clears the history stored in this browser. It does not undo actions already run.',
+                )}
+                confirmText={t('清空历史', 'Clear history')}
                 destructive
                 onConfirm={() => {
                     clearHistory();

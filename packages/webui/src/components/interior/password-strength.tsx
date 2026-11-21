@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
+import { defaultTranslate, useT, type Translate } from '@/i18n';
 
 const CELL = { type: 'spring', stiffness: 520, damping: 34, mass: 0.45 } as const;
 const CROSSFADE = { type: 'spring', stiffness: 260, damping: 34, mass: 0.8 } as const;
@@ -51,6 +52,41 @@ export const defaultPasswordRules: readonly PasswordRule[] = [
 
 const defaultLabels = ['未输入', '弱', '一般', '良好', '强'] as const;
 
+/** Official scale labels; custom labels stay verbatim. */
+const STRENGTH_LABEL_EN: Record<string, string> = {
+    未输入: 'Not entered',
+    弱: 'Weak',
+    很弱: 'Very weak',
+    较弱: 'Fairly weak',
+    一般: 'Fair',
+    良好: 'Good',
+    强: 'Strong',
+};
+
+/** Official rule ids/labels from the server and the local defaults. */
+const RULE_LABEL_EN: Record<string, Record<string, string>> = {
+    length: {
+        '至少 12 个字符': 'At least 12 characters',
+        '长度不少于 10 位': 'At least 10 characters',
+    },
+    case: { 同时包含大写和小写字母: 'Include uppercase and lowercase letters' },
+    digit: { 包含数字: 'Include a number' },
+    symbol: { 包含特殊符号: 'Include a symbol' },
+    lower: { 包含小写字母: 'Include a lowercase letter' },
+    upper: { 包含大写字母: 'Include an uppercase letter' },
+    special: { '包含特殊符号 (!@#$%…)': 'Include a symbol (!@#$%…)' },
+    'no-space': { 不包含空格: 'No spaces' },
+};
+
+export function localizeRuleLabel(
+    rule: Pick<PasswordRule, 'id' | 'label'>,
+    t: Translate = defaultTranslate,
+): string {
+    const english = RULE_LABEL_EN[rule.id]?.[rule.label];
+
+    return english ? t(rule.label, english) : rule.label;
+}
+
 export function usePasswordStrength(
     value: string,
     {
@@ -59,14 +95,24 @@ export function usePasswordStrength(
         announceDelay = 700,
     }: UsePasswordStrengthOptions = {},
 ): PasswordStrengthState {
+    const t = useT();
     const state = useMemo(() => {
-        const evaluated = rules.map((rule) => ({ ...rule, met: rule.test(value) }));
+        const evaluated = rules.map((rule) => ({
+            ...rule,
+            label: localizeRuleLabel(rule, t),
+            met: rule.test(value),
+        }));
         const passed = evaluated.reduce((n, r) => n + (r.met ? 1 : 0), 0);
         const guessable =
             value.length > 0 && (COMMON.test(value) || RUN.test(value) || RUN_UP.test(value));
 
         // A weak step must remain below full, including for custom label lists.
-        const strengthLabels = labels.length >= 3 ? labels : defaultLabels;
+        const sourceLabels = labels.length >= 3 ? labels : defaultLabels;
+        const strengthLabels = sourceLabels.map((label) => {
+            const english = STRENGTH_LABEL_EN[label];
+
+            return english ? t(label, english) : label;
+        });
         const max = strengthLabels.length - 1;
         const score =
             value.length === 0
@@ -82,13 +128,18 @@ export function usePasswordStrength(
             value.length === 0
                 ? ''
                 : [
-                      `密码强度${label}。`,
-                      guessable ? '这是容易被猜中的常见模式。' : '',
+                      t(`密码强度${label}。`, `Password strength: ${label}.`),
+                      guessable
+                          ? t('这是容易被猜中的常见模式。', 'This is a commonly guessed pattern.')
+                          : '',
                       evaluated.length === 0
-                          ? '尚未获取密码要求。'
+                          ? t('尚未获取密码要求。', 'Password requirements are not available yet.')
                           : unmet.length === 0
-                            ? '已满足全部要求。'
-                            : `仍需满足：${unmet.map((r) => r.label).join('、')}。`,
+                            ? t('已满足全部要求。', 'All requirements are met.')
+                            : t(
+                                  `仍需满足：${unmet.map((r) => r.label).join('、')}。`,
+                                  `Still required: ${unmet.map((r) => r.label).join(', ')}.`,
+                              ),
                   ]
                       .filter(Boolean)
                       .join(' ');
@@ -102,7 +153,7 @@ export function usePasswordStrength(
             guessable,
             announcement,
         };
-    }, [value, rules, labels]);
+    }, [value, rules, labels, t]);
 
     const [settled, setSettled] = useState('');
 
@@ -176,6 +227,7 @@ export function PasswordStrength({
     } = usePasswordStrength(value, { rules, labels, announceDelay });
     const reduced = useReducedMotionConfig();
     const tone = toneFor(score, max);
+    const t = useT();
 
     return (
         <AnimatePresence initial={false}>
@@ -191,7 +243,7 @@ export function PasswordStrength({
                 >
                     <div
                         role="meter"
-                        aria-label="密码强度"
+                        aria-label={t('密码强度', 'Password strength')}
                         aria-valuemin={0}
                         aria-valuemax={max}
                         aria-valuenow={score}
@@ -243,7 +295,7 @@ export function PasswordStrength({
                             animate={{ opacity: guessable ? 1 : 0 }}
                             transition={reduced ? INSTANT : CROSSFADE}
                         >
-                            容易被猜中
+                            {t('容易被猜中', 'Easily guessed')}
                         </motion.span>
                     </div>
 
@@ -287,7 +339,7 @@ export function PasswordStrength({
                                         {rule.label}
                                     </span>
                                     <span className="sr-only">
-                                        {rule.met ? '已满足' : '未满足'}
+                                        {rule.met ? t('已满足', 'Met') : t('未满足', 'Not met')}
                                     </span>
                                 </li>
                             ))}

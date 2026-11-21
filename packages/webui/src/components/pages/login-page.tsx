@@ -5,6 +5,7 @@ import { OtpInput, type OtpInputHandle } from '@/components/interior/otp-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordVisibilityIcon } from '@/components/ui/password-visibility-icon';
+import { LanguageToggle } from '@/components/language-toggle';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LineField } from '@/components/ui/line-field';
 import { PaperBackdrop } from '@/components/layout/paper-backdrop';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { BRAND_LOGO_URL } from '@/brand';
 import { APP_NAME, APP_VERSION } from '@/types';
 import { parseSecondFactor } from '@/lib/totp-second-factor';
+import { useT, type Translate } from '@/i18n';
 import '@/styles/workspace.css';
 
 interface LoginPageProps {
@@ -25,12 +27,47 @@ interface LoginPageProps {
     initialUseRecovery?: boolean;
 }
 
+export function loginErrorMessage(message: string, recovery: boolean, t: Translate): string {
+    switch (message) {
+        case '登录失败':
+            return t(message, 'Sign-in failed');
+        case '密码错误':
+            return t(message, 'Incorrect password');
+        case '验证码不正确':
+            return t(message, recovery ? 'Incorrect recovery code' : 'Incorrect verification code');
+        case '恢复码不正确，改错的那一位即可。':
+            return t(
+                message,
+                'Incorrect recovery code. You can correct just the mistyped character.',
+            );
+        case '验证码不正确，改错的那一位即可。':
+            return t(
+                message,
+                'Incorrect verification code. You can correct just the mistyped digit.',
+            );
+        case '请求格式错误':
+            return t(message, 'Invalid request format');
+        case '令牌错误':
+            return t(message, 'Invalid session token');
+        case '网络错误':
+            return t(message, 'Network error');
+
+        default: {
+            const wait = /^登录尝试过多，请 (\d+) 秒后重试$/.exec(message);
+            return wait
+                ? t(message, `Too many sign-in attempts. Try again in ${wait[1]} seconds.`)
+                : message;
+        }
+    }
+}
+
 export function LoginPage({
     onLogin,
     initialPassword = '',
     initialNeedsTotp = false,
     initialUseRecovery = false,
 }: LoginPageProps) {
+    const t = useT();
     const { appearance, performance } = useTheme();
     const customBg = appearance.background.type !== 'none';
     const reduce = useReducedMotionConfig() || appearance.reduceMotion || appearance.disableMotion;
@@ -123,11 +160,21 @@ export function LoginPage({
             {needsTotp ? (
                 <>
                     <LoginBrand
-                        title={useRecovery ? '使用恢复码' : '验证身份'}
+                        title={
+                            useRecovery
+                                ? t('使用恢复码', 'Use a recovery code')
+                                : t('验证身份', 'Verify your identity')
+                        }
                         subtitle={
                             useRecovery
-                                ? '输入保存的一次性恢复码'
-                                : '输入 Authenticator 中的 6 位验证码'
+                                ? t(
+                                      '输入保存的一次性恢复码',
+                                      'Enter one of your saved one-time recovery codes',
+                                  )
+                                : t(
+                                      '输入 Authenticator 中的 6 位验证码',
+                                      'Enter the 6-digit code from your authenticator app',
+                                  )
                         }
                     />
                     <form onSubmit={handleTotpSubmit} className="mt-8 flex flex-col gap-3.5">
@@ -140,19 +187,24 @@ export function LoginPage({
                             mode={useRecovery ? 'alphanumeric' : 'numeric'}
                             groupEvery={useRecovery ? 4 : 3}
                             groupSeparator={useRecovery}
-                            label={useRecovery ? '恢复码' : '验证码'}
+                            label={
+                                useRecovery
+                                    ? t('恢复码', 'Recovery code')
+                                    : t('验证码', 'Verification code')
+                            }
                             disabled={otpStatus === 'checking'}
                             error={otpStatus === 'rejected'}
-                            errorMessage={
-                                error ||
-                                (useRecovery
-                                    ? '恢复码不正确，改错的那一位即可。'
-                                    : '验证码不正确，改错的那一位即可。')
-                            }
+                            errorMessage={loginErrorMessage(error, useRecovery, t)}
                             hint={
                                 useRecovery
-                                    ? '可以把完整恢复码粘贴到任意一格，连字符会自动忽略。'
-                                    : '可以把完整验证码粘贴到任意一格。'
+                                    ? t(
+                                          '可以把完整恢复码粘贴到任意一格，连字符会自动忽略。',
+                                          'Paste the full recovery code into any cell. Hyphens are ignored.',
+                                      )
+                                    : t(
+                                          '可以把完整验证码粘贴到任意一格。',
+                                          'You can paste the full verification code into any cell.',
+                                      )
                             }
                             onChange={() => setOtpStatus((s) => (s === 'rejected' ? 'idle' : s))}
                             onComplete={(code) => {
@@ -186,7 +238,7 @@ export function LoginPage({
                                 onClick={goBackToPassword}
                                 className="text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
                             >
-                                返回
+                                {t('返回', 'Back')}
                             </button>
                             <button
                                 type="button"
@@ -197,17 +249,25 @@ export function LoginPage({
                                 }}
                                 className="text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
                             >
-                                {useRecovery ? '改用验证码' : '使用恢复码'}
+                                {useRecovery
+                                    ? t('改用验证码', 'Use a verification code instead')
+                                    : t('使用恢复码', 'Use a recovery code')}
                             </button>
                         </div>
                     </form>
                 </>
             ) : (
                 <>
-                    <LoginBrand title="进入工作台" subtitle="管理 QQ 会话与机器人连接。" />
+                    <LoginBrand
+                        title={t('进入工作台', 'Sign in to the workspace')}
+                        subtitle={t(
+                            '管理 QQ 会话与机器人连接。',
+                            'Manage QQ sessions and bot connections.',
+                        )}
+                    />
                     <form onSubmit={handlePasswordSubmit} className="mt-8 flex flex-col gap-3.5">
                         <label htmlFor="login-password" className="text-sm font-medium">
-                            访问密码
+                            {t('访问密码', 'Access password')}
                         </label>
                         <motion.div
                             key={shake}
@@ -220,8 +280,8 @@ export function LoginPage({
                                 id="login-password"
                                 name="password"
                                 type={showPwd ? 'text' : 'password'}
-                                placeholder="输入访问密码"
-                                aria-label="访问密码"
+                                placeholder={t('输入访问密码', 'Enter your access password')}
+                                aria-label={t('访问密码', 'Access password')}
                                 aria-invalid={!!error}
                                 aria-describedby={error ? 'login-error' : undefined}
                                 value={password}
@@ -234,7 +294,11 @@ export function LoginPage({
                                 type="button"
                                 onClick={() => setShowPwd((v) => !v)}
                                 className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                aria-label={showPwd ? '隐藏密码' : '显示密码'}
+                                aria-label={
+                                    showPwd
+                                        ? t('隐藏密码', 'Hide password')
+                                        : t('显示密码', 'Show password')
+                                }
                             >
                                 <PasswordVisibilityIcon visible={showPwd} reduceMotion={reduce} />
                             </button>
@@ -248,7 +312,7 @@ export function LoginPage({
                                 animate={{ opacity: 1 }}
                                 className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-xs text-destructive"
                             >
-                                {error}
+                                {loginErrorMessage(error, useRecovery, t)}
                             </motion.p>
                         )}
 
@@ -259,10 +323,11 @@ export function LoginPage({
                             className="h-12 text-[15px]"
                         >
                             {loading ? (
-                                '验证中…'
+                                t('验证中…', 'Verifying…')
                             ) : (
                                 <>
-                                    打开工作台 <ArrowRight className="optical-forward size-4" />
+                                    {t('打开工作台', 'Open workspace')}{' '}
+                                    <ArrowRight className="optical-forward size-4" />
                                 </>
                             )}
                         </Button>
@@ -274,9 +339,10 @@ export function LoginPage({
 }
 
 function LoginBrand({ title, subtitle }: { title: string; subtitle: string }) {
+    const t = useT();
     return (
         <div className="workspace-auth-heading">
-            <p className="workspace-eyebrow">安全访问</p>
+            <p className="workspace-eyebrow">{t('安全访问', 'Secure access')}</p>
             <h1>{title}</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
         </div>
@@ -294,6 +360,7 @@ function LoginShell({
     wide?: boolean;
     children: ReactNode;
 }) {
+    const t = useT();
     const { managedBy, performance } = useTheme();
     const lowCost = performance?.low ?? false;
     return (
@@ -306,15 +373,19 @@ function LoginShell({
                     <span className="workspace-auth-version">v{APP_VERSION}</span>
                 </div>
                 <div className="workspace-toolbar-scene">
+                    <LanguageToggle />
                     <ThemeToggle />
                 </div>
             </header>
             <div className={cn('workspace-auth-content', wide && 'workspace-auth-content-wide')}>
-                <aside className="workspace-auth-identity" aria-label="Nowluma QQ 连接控制台">
+                <aside
+                    className="workspace-auth-identity"
+                    aria-label={`${APP_NAME} ${t('QQ 连接控制台', 'QQ connection console')}`}
+                >
                     <div className="workspace-auth-artwork">
                         <LineField animated={!reduce && !lowCost && !managedBy} />
                         <div className="workspace-auth-artwork-caption">
-                            <span>01 — 连接，从这里开始</span>
+                            <span>{t('01 — 连接，从这里开始', '01 — Connect from here')}</span>
                             <span aria-hidden="true" className="workspace-line-key">
                                 <i />
                                 <i />
@@ -324,11 +395,13 @@ function LoginShell({
                         </div>
                     </div>
                     <div className="workspace-auth-introduction">
-                        <p className="workspace-eyebrow">QQ 连接控制台</p>
+                        <p className="workspace-eyebrow">
+                            {t('QQ 连接控制台', 'QQ connection console')}
+                        </p>
                         <p className="workspace-auth-statement">
-                            连接有序，
+                            {t('连接有序，', 'Keep connections organized.')}
                             <br />
-                            结果清晰。
+                            {t('结果清晰。', 'See results clearly.')}
                         </p>
                     </div>
                 </aside>
@@ -344,12 +417,14 @@ function LoginShell({
                     }
                     className={cn('workspace-auth-document', wide ? 'max-w-2xl' : 'max-w-md')}
                 >
-                    <section className="workspace-auth-form" aria-label="登录">
+                    <section className="workspace-auth-form" aria-label={t('登录', 'Sign in')}>
                         {children}
                     </section>
                 </motion.div>
             </div>
-            <footer className="workspace-auth-footer">{APP_NAME} · QQ 连接控制台</footer>
+            <footer className="workspace-auth-footer">
+                {APP_NAME} · {t('QQ 连接控制台', 'QQ connection console')}
+            </footer>
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '@/i18n';
 import { AnimatePresence, motion } from 'motion/react';
 import { CheckCircle2, Loader2, X, XCircle } from 'lucide-react';
 import { useDebugTasks, useRunningTaskSummary, type DebugTask } from '@/contexts/DebugTaskContext';
@@ -17,6 +18,7 @@ function StatusIcon({ status }: { status: DebugTask['status'] }) {
 }
 
 function Row({ task, onDismiss }: { task: DebugTask; onDismiss: () => void }) {
+    const t = useT();
     const pct = typeof task.progress === 'number' ? Math.round(task.progress * 100) : null;
     return (
         <div className="flex flex-col gap-1 rounded-lg px-2.5 py-2 hover:bg-muted/50">
@@ -28,7 +30,7 @@ function Row({ task, onDismiss }: { task: DebugTask; onDismiss: () => void }) {
                         type="button"
                         onClick={task.cancel}
                         className="text-muted-foreground hover:text-destructive"
-                        title="取消"
+                        title={t('取消', 'Cancel')}
                     >
                         <X className="h-3.5 w-3.5" />
                     </button>
@@ -37,7 +39,7 @@ function Row({ task, onDismiss }: { task: DebugTask; onDismiss: () => void }) {
                         type="button"
                         onClick={onDismiss}
                         className="text-muted-foreground hover:text-foreground"
-                        title="移除"
+                        title={t('移除', 'Remove')}
                     >
                         <X className="h-3.5 w-3.5" />
                     </button>
@@ -64,6 +66,7 @@ function Row({ task, onDismiss }: { task: DebugTask; onDismiss: () => void }) {
 }
 
 export function TaskBadge() {
+    const t = useT();
     const { tasks, remove, clearFinished } = useDebugTasks();
     const { count, progress } = useRunningTaskSummary();
     const [open, setOpen] = useState(false);
@@ -92,14 +95,16 @@ export function TaskBadge() {
                         className="w-72 overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-xl ring-1 ring-black/5"
                     >
                         <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-                            <span className="text-xs font-semibold">调试任务</span>
+                            <span className="text-xs font-semibold">
+                                {t('调试任务', 'Debug tasks')}
+                            </span>
                             {tasks.some((t) => t.status !== 'running') && (
                                 <button
                                     type="button"
                                     onClick={clearFinished}
                                     className="text-xs text-muted-foreground hover:text-foreground"
                                 >
-                                    清除已完成
+                                    {t('清除已完成', 'Clear completed')}
                                 </button>
                             )}
                         </div>
@@ -124,10 +129,11 @@ export function TaskBadge() {
                 )}
                 {count > 0 ? (
                     <span>
-                        {count} 个任务{ringPct !== null ? ` · ${ringPct}%` : ''}
+                        {t(`${count} 个任务`, `${count} ${count === 1 ? 'task' : 'tasks'}`)}
+                        {ringPct !== null ? ` · ${ringPct}%` : ''}
                     </span>
                 ) : (
-                    <span className="text-muted-foreground">任务完成</span>
+                    <span className="text-muted-foreground">{t('任务完成', 'Tasks complete')}</span>
                 )}
             </button>
         </div>

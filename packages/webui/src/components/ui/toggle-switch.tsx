@@ -6,11 +6,18 @@ interface ToggleSwitchProps {
     onChange: (v: boolean) => void;
     ariaLabel: string;
     disabled?: boolean;
+    'data-tutorial-control'?: string;
 }
 
 /** Small animated on/off switch (`role="switch"`). Shared across the config
  *  surfaces — node enable toggle, built-in command toggles, etc. */
-export function ToggleSwitch({ value, onChange, ariaLabel, disabled }: ToggleSwitchProps) {
+export function ToggleSwitch({
+    value,
+    onChange,
+    ariaLabel,
+    disabled,
+    'data-tutorial-control': tutorialControl,
+}: ToggleSwitchProps) {
     const reduced = useReducedMotionConfig();
     return (
         <button
@@ -18,6 +25,7 @@ export function ToggleSwitch({ value, onChange, ariaLabel, disabled }: ToggleSwi
             role="switch"
             aria-checked={value ? 'true' : 'false'}
             aria-label={ariaLabel}
+            data-tutorial-control={tutorialControl}
             disabled={disabled}
             onClick={() => onChange(!value)}
             className={cn(
@@ -37,7 +45,9 @@ export function ToggleSwitch({ value, onChange, ariaLabel, disabled }: ToggleSwi
                     className="inline-block size-4 rounded-full bg-primary-foreground shadow-sm"
                     initial={false}
                     animate={{ x: value ? 24 : 4 }}
-                    transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 30 }}
+                    transition={
+                        reduced ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 30 }
+                    }
                 />
             </span>
         </button>

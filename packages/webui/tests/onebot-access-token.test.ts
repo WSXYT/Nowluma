@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { accessTokenFeedback } from '../src/lib/access-token-feedback';
 import { NETWORK_TABS, generateAccessToken } from '../src/components/config/defaults';
+import { translator } from '../src/i18n';
 
 describe('OneBot access token editor policy', () => {
     it('creates inbound endpoints on loopback with generated tokens', () => {
@@ -42,5 +43,14 @@ describe('OneBot access token editor policy', () => {
             message: '未绑定本机地址时，远程访问必须填写令牌；请生成令牌或将主机改为 127.0.0.1。',
         });
         expect(accessTokenFeedback('', [], true)).toMatchObject({ valid: true, tone: 'warning' });
+    });
+
+    it('localizes the warning without changing whether an empty token is allowed', () => {
+        expect(accessTokenFeedback('', [], true, translator('en'))).toEqual({
+            valid: true,
+            tone: 'warning',
+            message:
+                'Leaving the token blank disables authentication. Use this only for local access.',
+        });
     });
 });

@@ -312,19 +312,30 @@ describe('chapter baselines and genuine state proof', () => {
         api.reset();
     });
 
-    it('locates the cleanup control by its actual row label, not the modal title or another cleanup row', () => {
-        const buttons = ['文件传输临时数据', '日志'].map((label) => ({
-            textContent: '清理',
-            getAttribute: () => null,
-            parentElement: { querySelector: () => ({ textContent: label }) },
-            closest: () => null,
+    it.each(['清理', 'Clean up'])('locates the one visible logs cleanup control (%s)', (label) => {
+        const makeButton = (marker: string | null, hidden = false) => ({
+            marker,
+            textContent: label,
+            closest: () => (hidden ? {} : null),
             ownerDocument: { defaultView: null },
             matches: () => false,
-        }));
-        const root = { querySelectorAll: () => buttons } as unknown as ParentNode;
+        });
+        const logs = makeButton('storage-clean-logs');
+        const buttons = [
+            makeButton('storage-clean-media'),
+            makeButton(null),
+            makeButton('storage-clean-logs', true),
+            logs,
+        ];
+        const root = {
+            querySelectorAll: (selector: string) =>
+                buttons.filter(
+                    (button) =>
+                        selector === `.demo-console [data-tutorial-control="${button.marker}"]`,
+                ),
+        } as unknown as ParentNode;
         const step = TUTORIAL_LESSONS['data-backup'].steps.find((item) => item.id === 'cleanup')!;
-        expect(findTutorialTarget(step.target, root)).toBe(buttons[1]);
-        expect(findTutorialTarget({ ...step.target, rowLabel: '不存在' }, root)).toBeNull();
+        expect(findTutorialTarget(step.target, root)).toBe(logs);
     });
 
     it('requires accepted service, retention, cleanup and export outcomes, and excludes layout-only saves', async () => {

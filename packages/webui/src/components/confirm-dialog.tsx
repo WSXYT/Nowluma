@@ -6,6 +6,7 @@ import {
     useActionFeedback,
     type ActionFeedbackOptions,
 } from '@/contexts/ActionFeedbackContext';
+import { useT } from '@/i18n';
 
 interface ConfirmDialogProps {
     open: boolean;
@@ -26,8 +27,8 @@ export function ConfirmDialog({
     onOpenChange,
     title,
     description,
-    confirmText = '确认',
-    cancelText = '取消',
+    confirmText,
+    cancelText,
     destructive = false,
     content,
     confirmDisabled = false,
@@ -38,6 +39,7 @@ export function ConfirmDialog({
     const [error, setError] = useState<string | null>(null);
     const { runAction } = useActionFeedback();
     const cancelRef = useRef<HTMLButtonElement>(null);
+    const t = useT();
 
     const handleConfirm = async () => {
         setBusy(true);
@@ -52,7 +54,7 @@ export function ConfirmDialog({
 
             onOpenChange(false);
         } catch (caught) {
-            const message = actionErrorMessage(caught);
+            const message = actionErrorMessage(caught, t);
             setError(message);
             console.error('confirm action failed', caught);
         } finally {
@@ -92,7 +94,7 @@ export function ConfirmDialog({
                         disabled={busy}
                         onClick={() => handleOpenChange(false)}
                     >
-                        {cancelText}
+                        {cancelText ?? t('取消', 'Cancel')}
                     </Button>
                     <Button
                         type="button"
@@ -102,7 +104,7 @@ export function ConfirmDialog({
                         }}
                         disabled={busy || confirmDisabled}
                     >
-                        {busy ? '处理中…' : confirmText}
+                        {busy ? t('处理中…', 'Working…') : (confirmText ?? t('确认', 'Confirm'))}
                     </Button>
                 </>
             }

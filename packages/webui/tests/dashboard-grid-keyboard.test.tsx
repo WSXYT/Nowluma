@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardGrid } from '../src/components/pages/dashboard-grid';
 import { OverviewPage } from '../src/components/pages/overview-page';
 import { minSizeOf } from '../src/lib/dashboard-layout';
+import type * as I18nModule from '../src/i18n';
 import type { UiLayoutItem } from '../src/types';
 import { elements, hookHost } from './helpers/hook-host';
 
@@ -18,6 +19,7 @@ type Handle = {
     focus: ReturnType<typeof vi.fn>;
 };
 const state = vi.hoisted(() => ({
+    language: 'zh' as 'zh' | 'en',
     blocks: [] as UiLayoutItem[],
     mobile: [] as UiLayoutItem[],
     wide: true,
@@ -36,6 +38,10 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+vi.mock('@/i18n', async (original) => {
+    const actual = await original<typeof I18nModule>();
+    return { ...actual, useT: () => actual.translator(state.language) };
+});
 vi.mock('react-dom', async (original) => ({
     ...(await original<typeof import('react-dom')>()),
     createPortal: (children: ReactNode) => children,
@@ -140,6 +146,7 @@ beforeEach(() => {
         { id: 'link', visible: true },
     ];
     Object.assign(state, {
+        language: 'zh',
         wide: true,
         editing: true,
         low: false,
@@ -266,6 +273,29 @@ function mount(cols = 12) {
 }
 
 describe('DashboardGrid keyboard editing through the real layout engine', () => {
+    it('localizes the overview and edit controls without changing widget identity', () => {
+        state.language = 'en';
+        const overview = owner()();
+        expect(
+            find(overview, (item) => item.props.id === 'overview-widgets-title').props.children,
+        ).toBe('Runtime and logs');
+        const gallery = find(
+            overview,
+            (item) => typeof item.type === 'function' && item.type.name === 'WidgetGallery',
+        );
+        expect(
+            find(invoke(gallery), (item) => item.props.role === 'region').props['aria-label'],
+        ).toBe('Card library');
+        const grid = mount();
+        const rendered = grid.render();
+        expect(
+            find(rendered, (item) => item.props['data-widget-id'] === 'note').props['aria-label'],
+        ).toBe('Adjust the Note card layout');
+        expect(
+            find(rendered, (item) => item.props['aria-label'] === 'Configure the Note card').type,
+        ).toBe('button');
+    });
+
     it('moves and resizes through the existing change writer without initialization writes', () => {
         const grid = mount();
         expect(grid.change).not.toHaveBeenCalled();

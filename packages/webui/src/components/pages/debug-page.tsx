@@ -2,6 +2,7 @@
 // mounted across local navigation; the reference retains state after its
 // first visit. Prefilling the tester cannot replace an in-flight invocation.
 import { useEffect, useState } from 'react';
+import { useT } from '@/i18n';
 import { Activity, Library, Send, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs } from '@/components/ui/tabs';
@@ -18,11 +19,12 @@ import '@/styles/console-pages.css';
 type Tab = 'tester' | 'compose' | 'activity' | 'api';
 
 export function DebugPage() {
+    const t = useT();
     const api = useApi();
     const [accounts, setAccounts] = useState<QQInfo[]>([]);
     const [docs, setDocs] = useState<DebugActionDoc[]>([]);
     const [ready, setReady] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState<{ message: string | null } | null>(null);
     const [tab, setTab] = useState<Tab>('tester');
     const [apiOpened, setApiOpened] = useState(false);
     const [testerInvoking, setTesterInvoking] = useState(false);
@@ -36,7 +38,7 @@ export function DebugPage() {
                 setDocs(acts.actions);
             } catch (error) {
                 console.error('load debug tools', error);
-                setLoadError(error instanceof Error ? error.message : '加载开发者工具失败');
+                setLoadError({ message: error instanceof Error ? error.message : null });
             } finally {
                 setReady(true);
             }
@@ -57,28 +59,36 @@ export function DebugPage() {
             <header className="cp-document-header">
                 <div className="cp-toolbar">
                     <div className="min-w-0">
-                        <h2 className="cp-page-heading">开发者工具</h2>
-                        <p className="cp-lede">选择实际账号调用接口，构建消息并阅读运行结果。</p>
+                        <h2 className="cp-page-heading">{t('开发者工具', 'Developer tools')}</h2>
+                        <p className="cp-lede">
+                            {t(
+                                '选择实际账号调用接口，构建消息并阅读运行结果。',
+                                'Use a connected account to run actions, compose messages, and inspect the results.',
+                            )}
+                        </p>
                     </div>
                     {ready && (
                         <span className="cp-runtime-context font-mono tabular-nums">
-                            {accounts.length} 个账号 · {docs.length} 个接口
-                            {testerInvoking && <span role="status">调用进行中</span>}
+                            {t(
+                                `${accounts.length} 个账号 · ${docs.length} 个接口`,
+                                `${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'} · ${docs.length} ${docs.length === 1 ? 'action' : 'actions'}`,
+                            )}
+                            {testerInvoking && (
+                                <span role="status">{t('调用进行中', 'Action running')}</span>
+                            )}
                         </span>
                     )}
                 </div>
                 {loadError && (
-                    <div
-                        role="alert"
-                        className="cp-inline-notice text-destructive"
-                    >
-                        {loadError}
+                    <div role="alert" className="cp-inline-notice text-destructive">
+                        {loadError.message ??
+                            t('加载开发者工具失败', 'Could not load developer tools')}
                     </div>
                 )}
                 <GlassSurface className="cp-category-chrome">
                     <Tabs
                         className="border-0"
-                        aria-label="调试工具"
+                        aria-label={t('调试工具', 'Debug tools')}
                         value={tab}
                         onChange={(next) => {
                             setTab(next);
@@ -90,22 +100,22 @@ export function DebugPage() {
                         items={[
                             {
                                 value: 'tester',
-                                label: '接口调用',
+                                label: t('接口调用', 'Action tester'),
                                 icon: <Terminal className="size-4" />,
                             },
                             {
                                 value: 'compose',
-                                label: '发送消息',
+                                label: t('发送消息', 'Send message'),
                                 icon: <Send className="size-4" />,
                             },
                             {
                                 value: 'activity',
-                                label: '活动记录',
+                                label: t('活动记录', 'Activity'),
                                 icon: <Activity className="size-4" />,
                             },
                             {
                                 value: 'api',
-                                label: '接口库',
+                                label: t('接口库', 'API reference'),
                                 icon: <Library className="size-4" />,
                                 badge: docs.length || undefined,
                             },
@@ -120,7 +130,7 @@ export function DebugPage() {
                 lines={8}
                 lineHeight={28}
                 barHeight={11}
-                label="开发者工具数据"
+                label={t('开发者工具数据', 'Developer tools data')}
                 className={ready ? 'skeleton-swap-fluid' : ''}
             >
                 {ready ? (
@@ -129,7 +139,7 @@ export function DebugPage() {
                             subscription deliberately captures calls from the other tabs. */}
                         <div
                             role="tabpanel"
-                            aria-label="接口调用"
+                            aria-label={t('接口调用', 'Action tester')}
                             hidden={tab !== 'tester'}
                             inert={tab !== 'tester'}
                             className={cn('min-w-0', tab === 'tester' && 'cp-fade')}
@@ -143,7 +153,7 @@ export function DebugPage() {
                         </div>
                         <div
                             role="tabpanel"
-                            aria-label="发送消息"
+                            aria-label={t('发送消息', 'Send message')}
                             hidden={tab !== 'compose'}
                             inert={tab !== 'compose'}
                             className={cn('min-w-0', tab === 'compose' && 'cp-fade')}
@@ -152,7 +162,7 @@ export function DebugPage() {
                         </div>
                         <div
                             role="tabpanel"
-                            aria-label="活动记录"
+                            aria-label={t('活动记录', 'Activity')}
                             hidden={tab !== 'activity'}
                             inert={tab !== 'activity'}
                             className={cn('min-w-0', tab === 'activity' && 'cp-fade')}
@@ -162,12 +172,16 @@ export function DebugPage() {
                         {apiOpened && (
                             <div
                                 role="tabpanel"
-                                aria-label="接口库"
+                                aria-label={t('接口库', 'API reference')}
                                 hidden={tab !== 'api'}
                                 inert={tab !== 'api'}
                                 className={cn('min-w-0', tab === 'api' && 'cp-fade')}
                             >
-                                <ApiBrowser docs={docs} onTry={tryAction} tryDisabled={testerInvoking} />
+                                <ApiBrowser
+                                    docs={docs}
+                                    onTry={tryAction}
+                                    tryDisabled={testerInvoking}
+                                />
                             </div>
                         )}
                     </>

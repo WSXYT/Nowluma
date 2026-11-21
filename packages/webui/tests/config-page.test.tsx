@@ -6,6 +6,8 @@ import { GeneralSettingsTab } from '../src/components/config/general-settings-ta
 import { NodeEditDialog } from '../src/components/config/node-edit-dialog';
 import { ConfirmDialog } from '../src/components/confirm-dialog';
 import { Button } from '../src/components/ui/button';
+import type * as I18n from '../src/i18n';
+import type * as Motion from 'motion/react';
 import { normalizeOneBotConfig } from '../src/lib/onebot-config';
 import type { ConfigSaveResult } from '../src/lib/api/types';
 import type { OneBotConfig } from '../src/types';
@@ -24,6 +26,10 @@ vi.mock('@/contexts/ActionFeedbackContext', async (original) => ({
         runAction: (_options: unknown, action: () => unknown) => action(),
     }),
 }));
+vi.mock('motion/react', async (original) => ({
+    ...(await original<typeof Motion>()),
+    useReducedMotionConfig: () => true,
+}));
 vi.mock('@/contexts/AppStateContext', () => ({
     useAppState: () => ({
         selectedUin: state.selectedUin,
@@ -40,6 +46,10 @@ vi.mock('@/contexts/AppStateContext', () => ({
 vi.mock('@/contexts/LayoutContext', () => ({
     useLayout: () => ({ pages: { configTab: state.configTab }, setPages: vi.fn() }),
 }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator('en') };
+});
 
 const original = normalizeOneBotConfig({
     networks: { httpServers: [{ name: 'server-a', port: 3000, accessToken: 'fixture' }] },
@@ -97,7 +107,7 @@ function openDelete() {
     const props = rowProps();
     const row = rowHost.render(() => AdapterRow(props));
     (
-        find(row, (item) => item.props['aria-label'] === '删除 server-a').props
+        find(row, (item) => item.props['aria-label'] === 'Delete server-a').props
             .onClick as () => void
     )();
     return () =>
@@ -150,6 +160,55 @@ afterEach(() => {
 });
 
 describe('ConfigPage adapter changes', () => {
+    it('keeps the English chapter tabs and Save now control stable and saves the selected account', async () => {
+        const tabStrip = find(
+            page(),
+            (item) => typeof item.type === 'function' && item.type.name === 'TabStrip',
+        );
+        const tabTree = hookHost().render(() =>
+            (tabStrip.type as FunctionComponent)(tabStrip.props),
+        );
+        const httpTab = find(tabTree, (item) => item.props.id === 'config-tab-httpServers');
+        expect(
+            elements(httpTab.props.children as ReactNode).some(
+                (item) => item.props.children === 'HTTP API',
+            ),
+        ).toBe(true);
+        expect(httpTab.props['aria-controls']).toBe('config-panel-httpServers');
+        const generalTab = find(tabTree, (item) => item.props.id === 'config-tab-general');
+        expect(
+            elements(generalTab.props.children as ReactNode).some(
+                (item) => item.props.children === 'Message behavior',
+            ),
+        ).toBe(true);
+        (generalTab.props.onClick as () => void)();
+        expect(
+            find(page(), (item) => item.props.id === 'config-panel-general').props[
+                'aria-labelledby'
+            ],
+        ).toBe('config-tab-general');
+
+        const editor = find(
+            page(),
+            (item) => typeof item.type === 'function' && item.type.name === 'EditorBar',
+        );
+        const editorTree = hookHost().render(() =>
+            (editor.type as FunctionComponent)(editor.props),
+        );
+        const saveNow = find(
+            editorTree,
+            (item) => item.props['data-tutorial-control'] === 'config-save',
+        );
+        expect(saveNow.props.children).toContain('Save now');
+        state.api.config.save.mockResolvedValue(response(original));
+        (saveNow.props.onClick as () => void)();
+        await flush();
+        expect(state.api.config.save).toHaveBeenCalledExactlyOnceWith('10001', original);
+        expect(find(page(), (item) => item.type === editor.type).props.saveStatusTone).toBe(
+            'success',
+        );
+    });
+
     it('opens a deletion confirmation and cancels without a write', () => {
         const confirmation = openDelete();
         expect(confirmation().open).toBe(true);
@@ -215,7 +274,7 @@ describe('ConfigPage adapter changes', () => {
             (item) => typeof item.type === 'function' && item.type.name === 'EditorBar',
         );
         expect(editor.props.saveStatusTone).toBe('warning');
-        expect(editor.props.saveStatus).toContain('server-a：关闭超时');
+        expect(editor.props.saveStatus).toContain('server-a: 关闭超时');
         expect(elements(view()).filter((item) => item.type === AdapterRow)).toHaveLength(0);
         vi.advanceTimersByTime(10_000);
         expect(state.api.config.save).toHaveBeenCalledOnce();
@@ -312,7 +371,7 @@ describe('ConfigPage adapter changes', () => {
         vi.advanceTimersByTime(500);
         expect(state.api.config.save).toHaveBeenCalledOnce();
         await expect(dialog.onSubmit({ ...dialog.initial, name: 'edited-server' })).rejects.toThrow(
-            '请重新确认修改',
+            'Review your changes and try again.',
         );
         expect(state.api.config.save).toHaveBeenCalledOnce();
         expect(find(page(), (item) => item.type === NodeEditDialog).props.open).toBe(true);

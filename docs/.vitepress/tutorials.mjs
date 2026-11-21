@@ -1,4 +1,4 @@
-export const DOCS_BASE = '/Nowluma/';
+export const DOCS_BASE = '/NowLuma/';
 
 export const CHAPTER_IDS = [
   'index',
@@ -34,14 +34,14 @@ export function tutorialForPage(relativePath, tutorial) {
   return { chapter, lang: match[1] };
 }
 
-export function tutorialUrl(base, chapter, lang) {
+export function tutorialUrl(base, chapter, lang, { embedded = true } = {}) {
   if (!CHAPTER_IDS.includes(chapter) || !Object.hasOwn(LOCALES, lang)) {
     throw new Error('Unknown documentation tutorial or language');
   }
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base)) {
     throw new Error('The documentation base must be a local absolute directory');
   }
-  return `${base}demo/?tutorial=${chapter}&lang=${lang}&embed=1`;
+  return `${base}demo/?tutorial=${chapter}&lang=${lang}${embedded ? '&embed=1' : ''}`;
 }
 
 export function tutorialSectionForEvent(event, origin, frameWindow, lesson, sections) {

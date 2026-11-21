@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { LoginPage } from '../src/components/pages/login-page';
+import { LocaleProvider } from '../src/i18n';
 
 vi.mock('@/contexts/ThemeContext', () => ({
     useTheme: () => ({
@@ -25,7 +26,7 @@ describe('LoginPage 2FA step', () => {
         expect(markup).toContain('打开工作台');
         expect(markup).toContain('max-w-md');
         expect(markup).not.toContain('max-w-2xl');
-        expect(markup).not.toContain('character 1 of 6');
+        expect(markup).not.toContain('第 1 位，共 6 位');
         expect(markup).not.toContain('验证并进入');
     });
 
@@ -40,7 +41,7 @@ describe('LoginPage 2FA step', () => {
         expect(markup).not.toContain('输入访问密码');
         expect(markup).toContain('输入 Authenticator 中的 6 位验证码');
         expect(markup).not.toContain('验证并进入');
-        expect(markup).toContain('character 1 of 6');
+        expect(markup).toContain('验证码，第 1 位，共 6 位');
         expect(markup).toContain('可以把完整验证码粘贴到任意一格。');
         expect(markup).toContain('使用恢复码');
         expect(markup).toContain('返回');
@@ -59,8 +60,8 @@ describe('LoginPage 2FA step', () => {
             />,
         );
         expect(markup).toContain('输入保存的一次性恢复码');
-        expect(markup).toContain('character 1 of 8');
-        expect(markup).toContain('character 8 of 8');
+        expect(markup).toContain('恢复码，第 1 位，共 8 位');
+        expect(markup).toContain('恢复码，第 8 位，共 8 位');
         expect(markup).toContain('可以把完整恢复码粘贴到任意一格');
         expect(markup).toContain('改用验证码');
         expect(markup).toContain('max-w-2xl');
@@ -69,5 +70,25 @@ describe('LoginPage 2FA step', () => {
         expect(markup).not.toContain('XXXX-XXXX');
         expect(markup).not.toContain('验证并进入');
         expect(markup).not.toContain('输入访问密码');
+    });
+
+    it('renders English recovery instructions and labels without changing its eight-cell input', () => {
+        const markup = renderToStaticMarkup(
+            <LocaleProvider initial="en">
+                <LoginPage
+                    initialNeedsTotp
+                    initialUseRecovery
+                    onLogin={async () => ({ success: false, needsTotp: true })}
+                />
+            </LocaleProvider>,
+        );
+        expect(markup).toContain('切换到简体中文');
+        expect(markup).toContain('Enter one of your saved one-time recovery codes');
+        expect(markup).toContain('Recovery code, character 1 of 8');
+        expect(markup).toContain('Recovery code, character 8 of 8');
+        expect(markup).toContain(
+            'Paste the full recovery code into any cell. Hyphens are ignored.',
+        );
+        expect(markup).not.toContain('id="login-password"');
     });
 });

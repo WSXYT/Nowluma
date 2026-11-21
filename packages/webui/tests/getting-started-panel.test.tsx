@@ -3,10 +3,12 @@ import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountConnections, HookProcessInfo } from '../src/types';
+import type * as I18nModule from '../src/i18n';
 import { elements, hookHost } from './helpers/hook-host';
 import { GettingStartedPanel } from '../src/components/overview/getting-started-panel';
 
 const state = vi.hoisted(() => ({
+    language: 'zh' as 'zh' | 'en',
     processList: [] as HookProcessInfo[],
     qqList: [] as { uin: string; nickname: string }[],
     connections: [] as AccountConnections[],
@@ -21,6 +23,10 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+vi.mock('@/i18n', async (original) => {
+    const actual = await original<typeof I18nModule>();
+    return { ...actual, useT: () => actual.translator(state.language) };
+});
 vi.mock('motion/react', async (original) => ({
     ...(await original<typeof import('motion/react')>()),
     useReducedMotionConfig: () => true,
@@ -98,6 +104,7 @@ let host: ReturnType<typeof hookHost>;
 beforeEach(() => {
     vi.clearAllMocks();
     Object.assign(state, {
+        language: 'zh',
         processList: [],
         qqList: [],
         connections: [],
@@ -136,6 +143,25 @@ function makeReady() {
 }
 
 describe('GettingStartedPanel', () => {
+    it('renders English steps and keeps the original error and navigation target', () => {
+        state.language = 'en';
+        makeReady();
+        let html = render();
+        expect(html).toContain('aria-label="Connection workflow"');
+        expect(html).toContain('Connection ready');
+        expect(html).toContain('href="/logs"');
+        expect(html).toContain('View results');
+        expect(html).toContain('QQ 10001');
+
+        state.errors.qqList = '读取超时 (E_READ)';
+        html = render();
+        expect(html).toContain('Could not read connection status');
+        expect(html).toContain('Check again');
+        expect(html).toContain('role="alert"');
+        expect(html).toContain('读取超时 (E_READ)');
+        expect(html).not.toContain('href="/logs"');
+    });
+
     it('releases the reserved title after reading without clipping wrapped headings', () => {
         makeReady();
         expect(render()).toMatch(/aria-label="下一步提示"[^>]*class="[^"]*skeleton-swap-fluid/);
@@ -243,6 +269,20 @@ describe('GettingStartedPanel', () => {
         expect(source.match(/processOps\.load\(/g)).toHaveLength(1);
         expect(source).not.toContain('ConfirmDialog');
         expect(source).not.toContain('api.process');
+    });
+
+    it('keeps an open connection explanation localized without losing its snapshot', () => {
+        makeReady();
+        (action(host.render(GettingStartedPanel), '连接说明').props.onClick as () => void)();
+        state.language = 'en';
+        const dialog = elements(host.render(GettingStartedPanel)).find(
+            (item) => item.props.open === true,
+        );
+        expect(dialog?.props.title).toBe('Connection details');
+        expect(dialog?.props.description).toBe('Connection ready');
+        expect(dialog?.props.closeLabel).toBe('Close connection details');
+        expect(state.load).not.toHaveBeenCalled();
+        expect(state.refreshProcesses).not.toHaveBeenCalled();
     });
 
     it('clears an open selection when stopped, so later snapshots cannot reopen a stale modal', () => {

@@ -3,6 +3,7 @@
 // tab. Filter by kind, keyword-search, pause, clear, and export the buffer as
 // JSON. Rows expand to a JsonTree of the full payload.
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useLocale, useT } from '@/i18n';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
 import {
     Activity,
@@ -65,27 +66,29 @@ function StatusPill({
     status: 'open' | 'reconnecting' | 'closed';
     paused?: boolean;
 }) {
-    // A deliberate pause reads as "已暂停", distinct from an unwanted disconnect.
+    // A deliberate pause reads as paused, distinct from an unwanted disconnect.
+    const t = useT();
     const map = paused
-        ? { dot: 'bg-muted-foreground/50', label: '已暂停', glow: '' }
+        ? { dot: 'bg-muted-foreground/50', label: t('已暂停', 'Paused'), glow: '' }
         : {
               open: {
                   dot: 'bg-emerald-500',
-                  label: '已连接',
+                  label: t('已连接', 'Connected'),
                   glow: 'shadow-[0_0_0_3px_rgb(16_185_129/0.15)]',
               },
               reconnecting: {
                   dot: 'bg-amber-500',
-                  label: '重连中',
+                  label: t('重连中', 'Reconnecting'),
                   glow: 'shadow-[0_0_0_3px_rgb(245_158_11/0.15)]',
               },
-              closed: { dot: 'bg-muted-foreground/50', label: '未连接', glow: '' },
+              closed: {
+                  dot: 'bg-muted-foreground/50',
+                  label: t('未连接', 'Disconnected'),
+                  glow: '',
+              },
           }[status];
     return (
-        <div
-            role="status"
-            className="inline-flex items-center gap-2 text-xs font-medium"
-        >
+        <div role="status" className="inline-flex items-center gap-2 text-xs font-medium">
             <span className={cn('h-2 w-2 rounded-full', map.dot, map.glow)} />
             <span className="text-muted-foreground">{map.label}</span>
         </div>
@@ -118,16 +121,21 @@ function rowLabel(msg: Extract<DebugStreamMessage, { kind: 'event' | 'action' }>
 }
 
 function StreamRowItem({ row }: { row: StreamRow }) {
+    const t = useT();
+    const { locale } = useLocale();
     const [open, setOpen] = useState(false);
     const id = useId();
     const reduced = useReducedMotionConfig();
     const { msg } = row;
-    const time = new Date(row.at).toLocaleTimeString('zh-CN', { hour12: false });
+    const time = new Date(row.at).toLocaleTimeString(locale, { hour12: false });
 
     if (msg.kind === 'dropped') {
         return (
             <div className="px-2 py-1.5 text-xs text-amber-600 dark:text-amber-400">
-                因客户端过慢丢弃了 {msg.count} 条
+                {t(
+                    `因客户端过慢丢弃了 ${msg.count} 条`,
+                    `Dropped ${msg.count} ${msg.count === 1 ? 'entry' : 'entries'} because the client could not keep up`,
+                )}
             </div>
         );
     }
@@ -152,7 +160,7 @@ function StreamRowItem({ row }: { row: StreamRow }) {
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span className="font-mono tabular-nums">{time}</span>
                         <span className="text-micro font-medium">
-                            {isAction ? '调用' : '事件'}
+                            {isAction ? t('调用', 'Action') : t('事件', 'Event')}
                         </span>
                         <span className="font-mono">{msg.uin}</span>
                     </span>
@@ -182,7 +190,11 @@ function StreamRowItem({ row }: { row: StreamRow }) {
                             className="overflow-hidden"
                         >
                             <div className="mb-3 min-w-0">
-                                <JsonTree data={detail} maxHeight="none" className="cp-json-document" />
+                                <JsonTree
+                                    data={detail}
+                                    maxHeight="none"
+                                    className="cp-json-document"
+                                />
                             </div>
                         </motion.div>
                     )}
@@ -193,6 +205,7 @@ function StreamRowItem({ row }: { row: StreamRow }) {
 }
 
 export function LiveActivity() {
+    const t = useT();
     const reduced = useReducedMotionConfig();
     const api = useApi();
     const [rows, setRows] = useState<StreamRow[]>([]);
@@ -285,7 +298,9 @@ export function LiveActivity() {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2.5">
                     <RadioTower className="size-4 text-muted-foreground" />
-                    <h2 className="text-[15px] font-semibold tracking-tight">实时活动</h2>
+                    <h2 className="text-[15px] font-semibold tracking-tight">
+                        {t('实时活动', 'Live activity')}
+                    </h2>
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {visible.length}
                     </span>
@@ -293,26 +308,33 @@ export function LiveActivity() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Segmented
-                        label="活动类型"
+                        label={t('活动类型', 'Activity type')}
                         value={kindFilter}
                         onChange={setKindFilter}
                         options={[
-                            { value: 'all', label: '全部' },
-                            { value: 'event', label: '事件' },
-                            { value: 'action', label: '调用' },
+                            { value: 'all', label: t('全部', 'All') },
+                            { value: 'event', label: t('事件', 'Event') },
+                            { value: 'action', label: t('调用', 'Action') },
                         ]}
                     />
-                    <IconBtn onClick={() => setPaused((v) => !v)} title={paused ? '继续' : '暂停'}>
+                    <IconBtn
+                        onClick={() => setPaused((v) => !v)}
+                        title={paused ? t('继续', 'Resume') : t('暂停', 'Pause')}
+                    >
                         {paused ? (
                             <Play className="optical-forward h-4 w-4" />
                         ) : (
                             <Pause className="h-4 w-4" />
                         )}
                     </IconBtn>
-                    <IconBtn onClick={exportJson} title="导出 JSON">
+                    <IconBtn onClick={exportJson} title={t('导出 JSON', 'Export JSON')}>
                         <Download className="h-4 w-4" />
                     </IconBtn>
-                    <IconBtn danger onClick={() => setConfirmClear(true)} title="清空活动">
+                    <IconBtn
+                        danger
+                        onClick={() => setConfirmClear(true)}
+                        title={t('清空活动', 'Clear activity')}
+                    >
                         <Trash2 className="h-4 w-4" />
                     </IconBtn>
                 </div>
@@ -322,10 +344,13 @@ export function LiveActivity() {
                 <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <input
                     type="search"
-                    aria-label="搜索活动类型、账号或内容"
+                    aria-label={t(
+                        '搜索活动类型、账号或内容',
+                        'Search activity by type, account, or content',
+                    )}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="搜索类型 / 账号 / 内容…"
+                    placeholder={t('搜索类型 / 账号 / 内容…', 'Search type, account, or content…')}
                     className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 />
             </GlassSurface>
@@ -336,10 +361,10 @@ export function LiveActivity() {
                         <Activity className="size-7 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">
                             {paused
-                                ? '已暂停'
+                                ? t('已暂停', 'Paused')
                                 : query || kindFilter !== 'all'
-                                  ? '无匹配'
-                                  : '等待事件…'}
+                                  ? t('无匹配', 'No matches')
+                                  : t('等待事件…', 'Waiting for events…')}
                         </p>
                     </div>
                 ) : (
@@ -349,9 +374,12 @@ export function LiveActivity() {
             <ConfirmDialog
                 open={confirmClear}
                 onOpenChange={setConfirmClear}
-                title="清空活动记录？"
-                description="仅清空当前浏览器的活动缓冲区，不会修改账号消息或撤销调用。"
-                confirmText="清空活动"
+                title={t('清空活动记录？', 'Clear activity history?')}
+                description={t(
+                    '仅清空当前浏览器的活动缓冲区，不会修改账号消息或撤销调用。',
+                    'This clears only this browser’s activity buffer. It does not change account messages or undo actions.',
+                )}
+                confirmText={t('清空活动', 'Clear activity')}
                 destructive
                 onConfirm={() => setRows([])}
             />

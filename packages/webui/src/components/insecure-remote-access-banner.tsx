@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { shouldWarnAboutInsecureRemoteAccess } from '@/lib/transport-security';
+import { useT } from '@/i18n';
 
 const DISMISS_KEY = 'nowluma.insecure-remote-access.dismissed.v1';
 
@@ -19,6 +20,7 @@ function readDismissed(): boolean {
 
 export function InsecureRemoteAccessBanner() {
     const [dismissed, setDismissed] = useState(readDismissed);
+    const t = useT();
     const visible =
         typeof window !== 'undefined' &&
         shouldWarnAboutInsecureRemoteAccess(window.location) &&
@@ -45,12 +47,14 @@ export function InsecureRemoteAccessBanner() {
         >
             <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
             <p className="max-w-4xl leading-relaxed">
-                当前页面通过远程 HTTP 访问，登录凭据和操作内容可能被同网络设备读取；请在设置中启用
-                HTTPS，或通过受信任的 HTTPS 反向代理访问。
+                {t(
+                    '当前页面通过远程 HTTP 访问，登录凭据和操作内容可能被同网络设备读取；请在设置中启用 HTTPS，或通过受信任的 HTTPS 反向代理访问。',
+                    'This page is accessed over remote HTTP, so sign-in credentials and operations may be readable by other devices on the network. Enable HTTPS in settings, or access it through a trusted HTTPS reverse proxy.',
+                )}
             </p>
             <button
                 type="button"
-                aria-label="关闭远程 HTTP 访问提醒"
+                aria-label={t('关闭远程 HTTP 访问提醒', 'Dismiss remote HTTP access warning')}
                 className="ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-amber-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700"
                 onClick={dismiss}
             >

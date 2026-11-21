@@ -4,9 +4,14 @@ import { MotionConfig } from 'motion/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { elements, hookHost } from './helpers/hook-host';
 import { MainLayout } from '../src/components/layout/main-layout';
+import type * as I18n from '../src/i18n';
 
 const state = vi.hoisted(() => ({ kiosk: false, wallpaper: false }));
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.defaultTranslate };
+});
 vi.mock('motion/react', async (original) => ({
     ...(await original<typeof import('motion/react')>()),
     useReducedMotionConfig: () => true,
@@ -153,7 +158,6 @@ describe('MainLayout workspace', () => {
         state.kiosk = false;
         expect(elements(render()).some((element) => element.props.open === true)).toBe(false);
     });
-
 
     it('retains custom wallpaper between the stable content surfaces', () => {
         state.wallpaper = true;

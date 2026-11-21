@@ -3,6 +3,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -16,6 +17,7 @@ import {
     migrateOverviewBlocks,
 } from '@/lib/dashboard-layout';
 import type { UiLayout, UiLayoutItem, UiPages } from '@/types';
+import { useT } from '@/i18n';
 
 // Client-side layout customization (the "C" half). The server stores the
 // layout in config/ui.json; this context loads it (authed `GET /api/ui`),
@@ -137,6 +139,11 @@ const LayoutContext = createContext<LayoutContextValue | null>(null);
 export function LayoutProvider({ children }: { children: ReactNode }) {
     const api = useApi();
     const { startAction } = useActionFeedback();
+    const t = useT();
+    const tRef = useRef(t);
+    useLayoutEffect(() => {
+        tRef.current = t;
+    }, [t]);
     const [layout, setLayout] = useState<UiLayout>(DEFAULT_LAYOUT);
     const [pages, setPagesState] = useState<UiPages>(DEFAULT_PAGES);
     const [ready, setReady] = useState(false);
@@ -234,8 +241,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
                 saveTimer.current = null; // mark not-pending so the unmount flush can't double-fire
                 void api.ui.save({ layout: next }).catch((error) => {
                     console.error('persist layout failed', error);
-                    startAction({ title: '界面布局同步失败' }).fail(
-                        `当前修改未保存：${actionErrorMessage(error)}`,
+                    const translate = tRef.current;
+                    const detail = actionErrorMessage(error, translate);
+                    startAction({
+                        title: translate('界面布局同步失败', 'Could not sync layout'),
+                    }).fail(
+                        translate(`当前修改未保存：${detail}`, `Changes were not saved: ${detail}`),
                     );
                 });
             }, 300);
@@ -295,8 +306,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
                 pagesTimer.current = null;
                 void api.ui.save({ pages: next }).catch((error) => {
                     console.error('persist page preferences failed', error);
-                    startAction({ title: '页面偏好同步失败' }).fail(
-                        `当前修改未保存：${actionErrorMessage(error)}`,
+                    const translate = tRef.current;
+                    const detail = actionErrorMessage(error, translate);
+                    startAction({
+                        title: translate('页面偏好同步失败', 'Could not sync page preferences'),
+                    }).fail(
+                        translate(`当前修改未保存：${detail}`, `Changes were not saved: ${detail}`),
                     );
                 });
             }, 300);

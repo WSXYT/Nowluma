@@ -59,6 +59,23 @@ describe('nextStep — 读取阶段', () => {
         expect(step.action).toBe('refresh-all');
     });
 
+    it('localizes operator context without changing API error details or the recovery action', () => {
+        const error = '读取超时 (E_READ)';
+        const step = nextStep(
+            input({ errors: { processList: error, qqList: '', connections: '' } }),
+            null,
+            (_, en) => en,
+        );
+        expect(step).toMatchObject({
+            id: 'read-error',
+            title: 'Could not read connection status',
+            error,
+            action: 'refresh-all',
+            actionLabel: 'Check again',
+            done: false,
+        });
+    });
+
     it('未就读绪的空数组不能当成「没打开 QQ」', () => {
         const step = nextStep(
             input({
@@ -314,6 +331,33 @@ describe('nextStep — 连接设置', () => {
             }),
         );
         expect(step.id).toBe('network-warn');
+    });
+
+    it('keeps endpoint recovery, names and raw error details intact in English', () => {
+        const step = nextStep(
+            input({
+                connections: [
+                    conn({
+                        adapters: [
+                            {
+                                name: '用户端点',
+                                kind: 'wsClient',
+                                status: 'warn',
+                                detail: '原始连接状态',
+                                lastError: '原始错误 (E_WS)',
+                            },
+                        ],
+                    }),
+                ],
+            }),
+            null,
+            (_, en) => en,
+        );
+        expect(step.id).toBe('network-warn');
+        expect(step.title).toBe('Check your bot connection');
+        expect(step.action).toBe('details');
+        expect(step.actionLabel).toBe('View details');
+        expect(step.error).toBe('用户端点: 原始错误 (E_WS)');
     });
 
     it('ws server 零客户端仍算 ok，但不宣称机器人已连上', () => {

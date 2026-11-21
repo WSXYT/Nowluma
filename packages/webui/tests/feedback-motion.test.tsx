@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as React from 'react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
+import type * as I18nModule from '../src/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiveActivity, type Activity } from '../src/components/interior/live-activity';
 import { CollapsibleBanner } from '../src/components/interior/collapsible-banner';
@@ -14,6 +15,10 @@ import {
 import { elements, hookHost } from './helpers/hook-host';
 
 const preferences = vi.hoisted(() => ({ reduced: false, present: true }));
+vi.mock('@/i18n', async (original) => {
+    const actual = await original<typeof I18nModule>();
+    return { ...actual, useT: () => actual.defaultTranslate };
+});
 vi.mock('react', async (original) => {
     const react = await original<typeof import('react')>();
     return {

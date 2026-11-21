@@ -12,6 +12,8 @@ const config: UpdateSourceConfig = {
         'https://failed.example',
     ],
 };
+
+vi.mock('@nowluma/common/version', () => ({ APP_VERSION: '2.0.0' }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('update mirror selection', () => {
@@ -69,6 +71,15 @@ describe('update mirror selection', () => {
         expect(results.filter((result) => !result.available)).toHaveLength(3);
         expect(results.at(-1)?.available).toBe(false);
         expect(cancelled).toHaveBeenCalledTimes(2);
+        const filename =
+            process.platform === 'win32'
+                ? 'Nowluma-v2.0.0-win-x64-lite.zip'
+                : `Nowluma-v2.0.0-linux-${process.arch}-lite.tar.gz`;
+        const probeUrl = `https://github.com/NowLuma/NowLuma/releases/download/v2.0.0/${filename}`;
+        expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+            probeUrl,
+            ...config.mirrors.map((mirror) => `${mirror}/${probeUrl}`),
+        ]);
         expect(
             fetchMock.mock.calls.every(
                 ([, options]) =>

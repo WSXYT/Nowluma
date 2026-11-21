@@ -1,3 +1,4 @@
+import { defaultTranslate, type Translate } from '@/i18n';
 import type { ApiClient } from '@/lib/api/types';
 import type { PickerOption } from '@/components/ui/picker';
 
@@ -83,10 +84,37 @@ function persist(): void {
 
 export type ContactKind = 'friends' | 'groups' | 'members';
 
+type ContactFormatCode = 'invalid-list' | 'invalid-id';
+type ContactError = ContactFormatCode | 'load-failed' | { message: string };
+
+class ContactFormatError extends Error {
+    readonly code: ContactFormatCode;
+
+    constructor(code: ContactFormatCode) {
+        super(code);
+        this.code = code;
+    }
+}
+
+export function contactErrorMessage(error: ContactError | null, t: Translate = defaultTranslate) {
+    switch (error) {
+        case null:
+            return null;
+        case 'invalid-list':
+            return t('联系人列表格式无效', 'Invalid contact list format');
+        case 'invalid-id':
+            return t('联系人 ID 格式无效', 'Invalid contact ID format');
+        case 'load-failed':
+            return t('加载失败', 'Could not load contacts');
+        default:
+            return error.message;
+    }
+}
+
 export interface ContactListState {
     items: PickerOption[];
     loading: boolean;
-    error: string | null;
+    error: ContactError | null;
 }
 
 const ACTIONS: Record<ContactKind, string> = {
@@ -97,7 +125,7 @@ const ACTIONS: Record<ContactKind, string> = {
 
 function parseContact(kind: ContactKind, row: unknown): PickerOption | null {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
-        throw new Error('联系人列表格式无效');
+        throw new ContactFormatError('invalid-list');
     }
 
     const fields = row as Record<string, unknown>;
@@ -108,7 +136,7 @@ function parseContact(kind: ContactKind, row: unknown): PickerOption | null {
     }
 
     if (typeof id !== 'string' && typeof id !== 'number') {
-        throw new Error('联系人 ID 格式无效');
+        throw new ContactFormatError('invalid-id');
     }
 
     const value = String(id);
@@ -177,11 +205,13 @@ export function createContactList(
             }
 
             if (result.status !== 'ok') {
-                throw new Error(result.message || result.wording || '加载失败');
+                const message = result.message || result.wording;
+                publish({ ...state, loading: false, error: message ? { message } : 'load-failed' });
+                return;
             }
 
             if (!Array.isArray(result.data)) {
-                throw new Error('联系人列表格式无效');
+                throw new ContactFormatError('invalid-list');
             }
 
             const items = result.data
@@ -195,7 +225,12 @@ export function createContactList(
                 publish({
                     ...state,
                     loading: false,
-                    error: error instanceof Error ? error.message : '加载失败',
+                    error:
+                        error instanceof ContactFormatError
+                            ? error.code
+                            : error instanceof Error
+                              ? { message: error.message }
+                              : 'load-failed',
                 });
             }
         }

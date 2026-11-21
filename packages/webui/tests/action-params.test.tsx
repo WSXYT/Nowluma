@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ParamField } from '../src/components/debug/param-field';
+import { LocaleProvider, translator } from '../src/i18n';
 import { buildActionParams } from '../src/lib/action-params';
 
 describe('debug action form parameters', () => {
@@ -19,6 +20,12 @@ describe('debug action form parameters', () => {
             expect(() => buildActionParams([objectParam], { feed })).toThrow(/feed/);
         },
     );
+
+    it('localizes validation without changing the parameter name', () => {
+        expect(() => buildActionParams([objectParam], { feed: '[]' }, translator('en'))).toThrow(
+            'feed must be a JSON object',
+        );
+    });
 
     it('omits an untouched optional object rather than sending an empty string', () => {
         expect(buildActionParams([{ ...objectParam, required: false }], { feed: '' })).toEqual({});
@@ -66,18 +73,20 @@ describe('debug action form parameters', () => {
 
     it('renders rich content as an explicit JSON editor without the OneBot message builder', () => {
         const html = renderToStaticMarkup(
-            <ParamField
-                param={contentParam}
-                value={'"[1,2]"'}
-                onChange={() => undefined}
-                uin=""
-                groupContext=""
-                actionName="comment_qzone_public_feed"
-            />,
+            <LocaleProvider fixed="en">
+                <ParamField
+                    param={contentParam}
+                    value={'"[1,2]"'}
+                    onChange={() => undefined}
+                    uin=""
+                    groupContext=""
+                    actionName="comment_qzone_public_feed"
+                />
+            </LocaleProvider>,
         );
         expect(html).toContain('<textarea');
         expect(html).toContain('aria-label="content"');
-        expect(html).toContain('JSON 字符串');
+        expect(html).toContain('Enter text as a JSON string');
         expect(html).not.toContain('role="radiogroup"');
     });
 

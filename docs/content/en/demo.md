@@ -18,8 +18,8 @@ Each embedded simulator selects that chapter's operation path. First-run lessons
 
 ## Opening it
 
-- Use the console above, follow its current objective, then continue. Operational steps cannot be skipped by pressing Continue before their result is confirmed.
-- Paths are relative, so it works under the `/Nowluma/` base path and in a local static preview.
+- Select **Load simulator** above the chapter. **Collapse simulator** hides it without discarding progress; **Restart tutorial** resets the lesson. Continue only after the guide confirms the current operation.
+- The simulator uses the chapter’s language. It works under the `/NowLuma/` base path and in a local HTTP preview.
 - Use only the public example password and code shown on the page; no real QQ account or OneBot token is required.
 
 ## What you can practise

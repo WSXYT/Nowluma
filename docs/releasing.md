@@ -139,6 +139,6 @@ hook 接入与真实 QQ 登录在该 smoke 中是 **NOT RUN**；历史 CI 通过
   因此发行作业需要外网。
 - 归档、镜像与 exe 都只证明构建来源与内容，不证明 QQ 账号可登录、消息可投递、重启后免扫码或重写内核可用。
 - 最新 Docker smoke 使用全新 HOME：真实原生 hook 接入与真实 QQ 登录是 NOT RUN。此前 CI 的历史通过记录不能写成当前版本的真实账号验收。
-- 当前源码门禁和发行状态以[Actions](https://github.com/WSXYT/Nowluma/actions)与[发行页面](https://github.com/WSXYT/Nowluma/releases)对应的源码提交为准，历史成功不能替代本次验收。
+- 当前源码门禁和发行状态以[Actions](https://github.com/NowLuma/NowLuma/actions)与[发行页面](https://github.com/NowLuma/NowLuma/releases)对应的源码提交为准，历史成功不能替代本次验收。
 - Pages 使用工作流部署，是否上线以成功部署与实际站点 HTTP 结果为准。
 - 不要用构建成功、来源证明或健康检查结果声称机器人会自动回复；回复逻辑由用户的机器人程序决定。

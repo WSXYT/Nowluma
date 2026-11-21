@@ -1,7 +1,8 @@
 import type { LogLevel, UiLayoutItem } from '@/types';
+import { defaultTranslate, type Translate } from '@/i18n';
 
 // The overview dashboard is a free 12-column gridstack grid. This module is
-// the pure (React-free) catalogue + migration so it can be shared by the
+// the pure catalogue + migration so it can be shared by the
 // LayoutContext (defaults / reset / migrate-on-load), the DashboardGrid
 // (render + min sizes), and the layout editor (labels) without import cycles.
 
@@ -12,7 +13,7 @@ export const GRID_MARGIN = 8;
 
 export interface GridWidgetSpec {
     id: string;
-    label: string;
+    label: readonly [string, string];
     /** Minimum width/height in grid units — prevents the content from collapsing. */
     minW: number;
     minH: number;
@@ -33,19 +34,73 @@ export const STAT_TILE_IDS = [
 ] as const;
 
 export const GRID_WIDGETS: GridWidgetSpec[] = [
-    { id: 'stat:status', label: '控制台连接', minW: 2, minH: 1, def: { x: 0, y: 0, w: 2, h: 1 } },
-    { id: 'stat:accounts', label: '已登录会话', minW: 2, minH: 1, def: { x: 2, y: 0, w: 2, h: 1 } },
-    { id: 'stat:processes', label: 'QQ 程序', minW: 2, minH: 1, def: { x: 4, y: 0, w: 2, h: 1 } },
-    { id: 'stat:host', label: '运行设备', minW: 2, minH: 1, def: { x: 6, y: 0, w: 3, h: 1 } },
-    { id: 'stat:uptime', label: '连续运行', minW: 2, minH: 1, def: { x: 9, y: 0, w: 3, h: 1 } },
-    { id: 'connections', label: '机器人连接', minW: 3, minH: 3, def: { x: 0, y: 1, w: 7, h: 4 } },
-    { id: 'alerts', label: '运行动态', minW: 3, minH: 3, def: { x: 7, y: 1, w: 5, h: 4 } },
-    { id: 'host', label: '资源用量', minW: 4, minH: 3, def: { x: 4, y: 5, w: 8, h: 4 } },
-    { id: 'sessions', label: 'QQ 会话', minW: 3, minH: 3, def: { x: 0, y: 5, w: 4, h: 4 } },
+    {
+        id: 'stat:status',
+        label: ['控制台连接', 'Console connection'],
+        minW: 2,
+        minH: 1,
+        def: { x: 0, y: 0, w: 2, h: 1 },
+    },
+    {
+        id: 'stat:accounts',
+        label: ['已登录会话', 'Signed-in sessions'],
+        minW: 2,
+        minH: 1,
+        def: { x: 2, y: 0, w: 2, h: 1 },
+    },
+    {
+        id: 'stat:processes',
+        label: ['QQ 程序', 'QQ processes'],
+        minW: 2,
+        minH: 1,
+        def: { x: 4, y: 0, w: 2, h: 1 },
+    },
+    {
+        id: 'stat:host',
+        label: ['运行设备', 'Host device'],
+        minW: 2,
+        minH: 1,
+        def: { x: 6, y: 0, w: 3, h: 1 },
+    },
+    {
+        id: 'stat:uptime',
+        label: ['连续运行', 'Uptime'],
+        minW: 2,
+        minH: 1,
+        def: { x: 9, y: 0, w: 3, h: 1 },
+    },
+    {
+        id: 'connections',
+        label: ['机器人连接', 'Bot connections'],
+        minW: 3,
+        minH: 3,
+        def: { x: 0, y: 1, w: 7, h: 4 },
+    },
+    {
+        id: 'alerts',
+        label: ['运行动态', 'Runtime activity'],
+        minW: 3,
+        minH: 3,
+        def: { x: 7, y: 1, w: 5, h: 4 },
+    },
+    {
+        id: 'host',
+        label: ['资源用量', 'Resource usage'],
+        minW: 4,
+        minH: 3,
+        def: { x: 4, y: 5, w: 8, h: 4 },
+    },
+    {
+        id: 'sessions',
+        label: ['QQ 会话', 'QQ sessions'],
+        minW: 3,
+        minH: 3,
+        def: { x: 0, y: 5, w: 4, h: 4 },
+    },
     // Static, opt-in widgets — content lives in block.config, hidden by default.
     {
         id: 'note',
-        label: '便签',
+        label: ['便签', 'Note'],
         minW: 2,
         minH: 2,
         def: { x: 0, y: 9, w: 4, h: 2 },
@@ -53,7 +108,7 @@ export const GRID_WIDGETS: GridWidgetSpec[] = [
     },
     {
         id: 'link',
-        label: '链接卡',
+        label: ['链接卡', 'Link card'],
         minW: 2,
         minH: 1,
         def: { x: 4, y: 9, w: 4, h: 1 },
@@ -61,7 +116,7 @@ export const GRID_WIDGETS: GridWidgetSpec[] = [
     },
     {
         id: 'account',
-        label: '账号快捷卡',
+        label: ['账号快捷卡', 'Account shortcut'],
         minW: 2,
         minH: 1,
         def: { x: 8, y: 9, w: 4, h: 1 },
@@ -69,7 +124,7 @@ export const GRID_WIDGETS: GridWidgetSpec[] = [
     },
     {
         id: 'deliveries',
-        label: '通知投递',
+        label: ['通知投递', 'Notification deliveries'],
         minW: 3,
         minH: 3,
         def: { x: 0, y: 11, w: 7, h: 3 },
@@ -87,8 +142,9 @@ export const HIDDEN_BY_DEFAULT_IDS: ReadonlySet<string> = new Set(
 
 const WIDGET_BY_ID = new Map(GRID_WIDGETS.map((w) => [w.id, w]));
 
-export function widgetLabel(id: string): string {
-    return WIDGET_BY_ID.get(id)?.label ?? id;
+export function widgetLabel(id: string, t: Translate = defaultTranslate): string {
+    const label = WIDGET_BY_ID.get(id)?.label;
+    return label ? t(...label) : id;
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {

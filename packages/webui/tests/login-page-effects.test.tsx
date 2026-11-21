@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginPage } from '../src/components/pages/login-page';
 import { elements, hookHost } from './helpers/hook-host';
 import type { HookHost } from './helpers/hook-host';
+import type * as I18n from '../src/i18n';
 
 const state = vi.hoisted(() => ({
+    language: 'zh' as I18n.Language,
     low: false,
     reduceMotion: false,
     disableMotion: false,
@@ -15,6 +17,10 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('react', async (original) => ({ ...(await original<typeof React>()) }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator(state.language) };
+});
 vi.mock('motion/react', async (original) => ({
     ...(await original<typeof Motion>()),
     useReducedMotionConfig: () => false,
@@ -36,7 +42,7 @@ vi.mock('@/contexts/ThemeContext', () => ({
 let hosts: HookHost[];
 beforeEach(() => {
     vi.clearAllMocks();
-    Object.assign(state, { low: false, reduceMotion: false, disableMotion: false });
+    Object.assign(state, { language: 'zh', low: false, reduceMotion: false, disableMotion: false });
     hosts = [];
     vi.stubGlobal(
         'window',
@@ -64,7 +70,6 @@ function host() {
     return next;
 }
 
-
 function find(
     node: ReactNode,
     predicate: (element: ReactElement<Record<string, unknown>>) => boolean,
@@ -91,11 +96,12 @@ function mountedPage(onLogin = vi.fn(async () => ({ success: false }))) {
     return { render, onLogin };
 }
 
-
 describe('LoginPage authentication and preference ownership', () => {
-
     it('leaves asynchronous authentication and the separate second-factor focus path with the auth owner', async () => {
-        const { promise, resolve } = Promise.withResolvers<{ success: boolean; needsTotp: boolean }>();
+        const { promise, resolve } = Promise.withResolvers<{
+            success: boolean;
+            needsTotp: boolean;
+        }>();
         const onLogin = vi.fn(() => promise);
         const page = mountedPage(onLogin);
         const input = find(page.render(), (element) => element.props.id === 'login-password');
@@ -112,10 +118,18 @@ describe('LoginPage authentication and preference ownership', () => {
         expect(
             find(page.render(), (element) => element.props.id === 'login-password').props.value,
         ).toBe('not-a-real-password');
+        state.language = 'en';
+        expect(
+            find(page.render(), (element) => element.props.type === 'submit').props.children,
+        ).toBe('Verifying…');
+        expect(
+            find(page.render(), (element) => element.props.id === 'login-password').props.value,
+        ).toBe('not-a-real-password');
         resolve({ success: false, needsTotp: true });
         await pending;
         expect(onLogin).toHaveBeenCalledExactlyOnceWith('not-a-real-password');
         expect(named(page.render(), 'OtpInput').props.autoFocus).toBe(true);
+        expect(named(page.render(), 'OtpInput').props.label).toBe('Verification code');
         expect(
             elements(page.render()).some((element) => element.props.id === 'login-password'),
         ).toBe(false);

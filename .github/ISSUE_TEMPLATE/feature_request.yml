@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        感谢您的建议。在提交前，请先在 [Issues](https://github.com/WSXYT/Nowluma/issues?q=is%3Aissue) 中搜索是否已有类似提案。
+        感谢您的建议。在提交前，请先在 [Issues](https://github.com/NowLuma/NowLuma/issues?q=is%3Aissue) 中搜索是否已有类似提案。
 
   - type: checkboxes
     id: preflight

@@ -1,19 +1,33 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FormEvent, ReactElement } from 'react';
-import { kernelDisplayCatalog, NATIVE_KERNEL_LABEL } from '@nowluma/common/kernel-display';
+import {
+    kernelDisplayCatalog,
+    NATIVE_KERNEL_LABEL,
+    NATIVE_KERNEL_LABEL_EN,
+} from '@nowluma/common/kernel-display';
 import {
     KernelCatalogPreview,
     KernelChoiceDialog,
     KernelChoiceForm,
 } from '../src/components/kernel-choice';
 import { demoKernelCatalog } from '../src/demo/fixtures';
+import { LocaleProvider, translator, useT } from '../src/i18n';
+import type * as I18n from '../src/i18n';
 import { elements, hookHost } from './helpers/hook-host';
 
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+const locale = vi.hoisted(() => ({ language: 'zh' as I18n.Language }));
+vi.mock('@/i18n', async (original) => {
+    const actual = await original<typeof I18n>();
+    return { ...actual, useT: vi.fn(actual.useT) };
+});
 
 const catalog = demoKernelCatalog();
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+    locale.language = 'zh';
+    vi.restoreAllMocks();
+});
 
 function formCallbacks(
     onConfirm = vi.fn(async (): Promise<void> => undefined),
@@ -21,8 +35,13 @@ function formCallbacks(
 ) {
     const host = hookHost();
     const onCancel = vi.fn();
-    const render = () =>
-        host.render(() => KernelChoiceForm({ uin: '10001', catalog, onConfirm, onCancel, onStop }));
+
+    const render = () => {
+        vi.mocked(useT).mockReturnValueOnce(translator(locale.language));
+        return host.render(() =>
+            KernelChoiceForm({ uin: '10001', catalog, onConfirm, onCancel, onStop }),
+        );
+    };
 
     const select = (value: 'compat' | 'rewrite') => {
         const options = elements(render()).find(
@@ -85,6 +104,52 @@ describe('KernelChoiceForm', () => {
         expect(onConfirm).not.toHaveBeenCalled();
     });
 
+    it('translates the known disclosure without substituting unfamiliar catalog values', () => {
+        const translated = renderToStaticMarkup(
+            <LocaleProvider fixed="en">
+                <KernelChoiceForm
+                    uin="10001"
+                    catalog={catalog}
+                    onConfirm={vi.fn()}
+                    onCancel={vi.fn()}
+                />
+            </LocaleProvider>,
+        );
+        expect(translated).toContain(NATIVE_KERNEL_LABEL_EN);
+        expect(translated).toContain('Rewritten kernel');
+        expect(translated).toContain('has not been verified on this platform and is unavailable');
+        expect(translated).toContain('account, data security, and legal risks');
+        expect(translated).toContain(
+            'does not waive liability that cannot be waived by law or change the GPL license',
+        );
+        expect(translated).toContain(
+            `Risk disclosure version ${catalog.riskVersion} · Applies only to QQ 10001`,
+        );
+        expect(translated).toContain('explicitly acknowledge the risks of using');
+        expect(translated).toContain('Cancel');
+        expect(translated).not.toContain('checked=""');
+        expect(translated).toMatch(/<input(?=[^>]*value="rewrite")(?=[^>]*disabled="")[^>]*>/);
+
+        const customCatalog = {
+            ...catalog,
+            options: catalog.options.map((option) => ({
+                ...option,
+                label: '服务端标签',
+                reason: '服务端原因',
+            })),
+            riskText: '服务器风险披露',
+        };
+        const original = renderToStaticMarkup(
+            <LocaleProvider fixed="en">
+                <KernelChoiceForm uin="10001" catalog={customCatalog} onConfirm={vi.fn()} />
+            </LocaleProvider>,
+        );
+        expect(original).toContain('服务端标签');
+        expect(original).toContain('服务端原因');
+        expect(original).toContain('服务器风险披露');
+        expect(original).not.toContain('account, data security, and legal risks');
+    });
+
     it('needs both an explicit compat selection and a new active acknowledgment before one exact save', async () => {
         const form = formCallbacks();
         form.submit();
@@ -93,6 +158,8 @@ describe('KernelChoiceForm', () => {
         form.select('compat');
         expect(form.submitButton().props.disabled).toBe(true);
         form.acknowledge();
+        locale.language = 'en';
+        expect(form.submitButton().props.children).toBe('Confirm and connect');
         expect(form.submitButton().props.disabled).toBe(false);
         form.submit();
         form.submit();
@@ -192,6 +259,7 @@ describe('KernelChoiceDialog', () => {
     it.each([true, false])('offers Stop only for an already injected target (%s)', (injected) => {
         const host = hookHost();
         const onStop = vi.fn(async () => undefined);
+        vi.mocked(useT).mockReturnValueOnce(translator(locale.language));
         const tree = host.render(() =>
             KernelChoiceDialog({
                 choice: {
@@ -209,6 +277,7 @@ describe('KernelChoiceDialog', () => {
     it('uses the accessible house Modal and routes every close path to the same cancellation', () => {
         const host = hookHost();
         const cancel = vi.fn();
+        vi.mocked(useT).mockReturnValueOnce(translator(locale.language));
         const tree = host.render(() =>
             KernelChoiceDialog({
                 choice: {

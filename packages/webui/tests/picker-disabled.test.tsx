@@ -1,12 +1,17 @@
 import type { MouseEvent, PointerEvent, ReactNode } from 'react';
 import type * as ReactModule from 'react';
 import type * as MotionModule from 'motion/react';
+import type * as I18nModule from '../src/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Picker } from '../src/components/ui/picker';
 import { elements, hookHost } from './helpers/hook-host';
 import type { HookHost } from './helpers/hook-host';
 
 vi.mock('react', async (original) => ({ ...(await original<typeof ReactModule>()) }));
+vi.mock('@/i18n', async (original) => {
+    const actual = await original<typeof I18nModule>();
+    return { ...actual, useT: () => actual.defaultTranslate };
+});
 vi.mock('motion/react', async (original) => ({
     ...(await original<typeof MotionModule>()),
     useReducedMotionConfig: () => true,

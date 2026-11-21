@@ -2,6 +2,7 @@
 // type selection and drag/keyboard reordering. Forward nodes retain their
 // own builder and the same serialization/validation contract.
 import { useState } from 'react';
+import { useT, defaultTranslate, type Translate } from '@/i18n';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Picker } from '@/components/ui/picker';
@@ -166,21 +167,21 @@ export function messageBuilderSegmentKinds(
     return [];
 }
 
-const LABELS: Record<SegBody['k'], string> = {
-    text: '文本',
-    at: '@',
-    image: '图片',
-    face: '表情',
-    reply: '回复',
-    record: '语音',
-    video: '视频',
-    file: '文件',
-    mface: '商城表情',
-    poke: '戳一戳',
-    json: 'JSON',
-    xml: 'XML',
-    markdown: 'Markdown',
-    node: '转发节点',
+const LABELS: Record<SegBody['k'], (t: Translate) => string> = {
+    text: (t) => t('文本', 'Text'),
+    at: () => '@',
+    image: (t) => t('图片', 'Image'),
+    face: (t) => t('表情', 'Emoji'),
+    reply: (t) => t('回复', 'Reply'),
+    record: (t) => t('语音', 'Voice'),
+    video: (t) => t('视频', 'Video'),
+    file: (t) => t('文件', 'File'),
+    mface: (t) => t('商城表情', 'Store emoji'),
+    poke: (t) => t('戳一戳', 'Poke'),
+    json: () => 'JSON',
+    xml: () => 'XML',
+    markdown: () => 'Markdown',
+    node: (t) => t('转发节点', 'Forward node'),
 };
 
 export function MessageBuilder({
@@ -199,6 +200,7 @@ export function MessageBuilder({
     depth?: number;
     mode?: MessageBuilderMode;
 }) {
+    const t = useT();
     const [dragFrom, setDragFrom] = useState<number | null>(null);
 
     const add = (k: SegBody['k']) => {
@@ -221,14 +223,16 @@ export function MessageBuilder({
 
     const segmentOptions = messageBuilderSegmentKinds(mode, segments).map((kind) => ({
         value: kind,
-        label: LABELS[kind],
+        label: LABELS[kind](t),
     }));
 
     return (
         <div className="flex min-w-0 flex-col gap-2">
             {segments.length === 0 && (
                 <p className="py-4 text-xs text-muted-foreground">
-                    {mode === 'forward' ? '添加转发节点开始构建。' : '添加消息段开始构建。'}
+                    {mode === 'forward'
+                        ? t('添加转发节点开始构建。', 'Add a forward node to get started.')
+                        : t('添加消息段开始构建。', 'Add a message segment to get started.')}
                 </p>
             )}
 
@@ -265,14 +269,14 @@ export function MessageBuilder({
                                     setDragFrom(i);
                                 }}
                                 onDragEnd={() => setDragFrom(null)}
-                                title="拖动此处排序"
-                                aria-label="拖动排序"
+                                title={t('拖动此处排序', 'Drag to reorder')}
+                                aria-label={t('拖动排序', 'Drag to reorder')}
                                 className="flex shrink-0 cursor-grab rounded-md p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
                             >
                                 <GripVertical className="h-3.5 w-3.5" />
                             </span>
                             <span className="truncate text-xs font-semibold text-muted-foreground">
-                                {LABELS[s.k]}
+                                {LABELS[s.k](t)}
                             </span>
                         </span>
                         <div className="flex shrink-0 items-center gap-0.5">
@@ -282,8 +286,8 @@ export function MessageBuilder({
                                 disabled={i === 0}
                                 variant="glass"
                                 size="icon-sm"
-                                aria-label={`上移第 ${i + 1} 段`}
-                                title="上移"
+                                aria-label={t(`上移第 ${i + 1} 段`, `Move segment ${i + 1} up`)}
+                                title={t('上移', 'Move up')}
                             >
                                 ↑
                             </Button>
@@ -293,8 +297,8 @@ export function MessageBuilder({
                                 disabled={i === segments.length - 1}
                                 variant="glass"
                                 size="icon-sm"
-                                aria-label={`下移第 ${i + 1} 段`}
-                                title="下移"
+                                aria-label={t(`下移第 ${i + 1} 段`, `Move segment ${i + 1} down`)}
+                                title={t('下移', 'Move down')}
                             >
                                 ↓
                             </Button>
@@ -303,8 +307,8 @@ export function MessageBuilder({
                                 onClick={() => remove(i)}
                                 variant="glass"
                                 size="icon-sm"
-                                aria-label={`删除第 ${i + 1} 段`}
-                                title="删除"
+                                aria-label={t(`删除第 ${i + 1} 段`, `Delete segment ${i + 1}`)}
+                                title={t('删除', 'Delete')}
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -321,8 +325,8 @@ export function MessageBuilder({
             ))}
 
             <Dropdown
-                label="消息段类型"
-                placeholder="添加段"
+                label={t('消息段类型', 'Message segment type')}
+                placeholder={t('添加段', 'Add segment')}
                 value=""
                 items={segmentOptions}
                 onChange={(kind) => add(kind as SegBody['k'])}
@@ -344,18 +348,26 @@ function AtEditor({
     uin: string;
     groupId: string;
 }) {
+    const t = useT();
     const { items, loading, error, refresh } = useGroupMembers(uin, groupId);
-    const options = [{ value: 'all', label: '@全体成员', sub: 'all' }, ...items];
+    const options = [{ value: 'all', label: t('@全体成员', '@everyone'), sub: 'all' }, ...items];
     return (
         <Picker
-            ariaLabel="@某人"
+            ariaLabel={t('@某人', 'Mention someone')}
             value={seg.qq}
             onChange={(v) => onChange({ ...seg, qq: v })}
             options={options}
             loading={loading}
             error={error}
             onRefresh={refresh}
-            placeholder={groupId ? '选择成员 / @全体' : '输入 QQ 号(私聊无成员)'}
+            placeholder={
+                groupId
+                    ? t('选择成员 / @全体', 'Select member / @everyone')
+                    : t(
+                          '输入 QQ 号(私聊无成员)',
+                          'Enter a QQ number (private chat has no member list)',
+                      )
+            }
             validateRaw={(s) => s === 'all' || /^\d{3,}$/.test(s)}
         />
     );
@@ -374,14 +386,16 @@ function SegmentEditor({
     groupId: string;
     depth: number;
 }) {
+    const t = useT();
+
     switch (seg.k) {
         case 'text':
             return (
                 <Textarea
                     value={seg.text}
                     onChange={(e) => onChange({ ...seg, text: e.target.value })}
-                    placeholder="文本内容"
-                    aria-label="文本段内容"
+                    placeholder={t('文本内容', 'Text content')}
+                    aria-label={t('文本段内容', 'Text segment content')}
                     className="min-h-16"
                 />
             );
@@ -420,9 +434,10 @@ function SegmentEditor({
                         onChange={(v) => onChange({ ...seg, file: v })}
                     />
                     <Input
+                        aria-label={t('文件名', 'Filename')}
                         value={seg.name}
                         onChange={(e) => onChange({ ...seg, name: e.target.value })}
-                        placeholder="文件名(可选)"
+                        placeholder={t('文件名(可选)', 'Filename (optional)')}
                     />
                 </div>
             );
@@ -431,22 +446,24 @@ function SegmentEditor({
         case 'reply':
             return (
                 <Input
+                    aria-label={t('回复的消息 id', 'Message ID to reply to')}
                     value={seg.id}
                     onChange={(e) =>
                         onChange({ ...seg, id: e.target.value.replace(/[^\d-]/g, '') })
                     }
-                    placeholder="回复的消息 id"
+                    placeholder={t('回复的消息 id', 'Message ID to reply to')}
                     className="font-mono"
                 />
             );
         case 'poke':
             return (
                 <Input
+                    aria-label={t('戳一戳类型', 'Poke type')}
                     value={seg.type}
                     onChange={(e) =>
                         onChange({ ...seg, type: e.target.value.replace(/[^\d]/g, '') })
                     }
-                    placeholder="戳一戳类型(默认 1)"
+                    placeholder={t('戳一戳类型(默认 1)', 'Poke type (default 1)')}
                     className="font-mono"
                 />
             );
@@ -455,8 +472,8 @@ function SegmentEditor({
                 <Textarea
                     value={seg.data}
                     onChange={(e) => onChange({ ...seg, data: e.target.value })}
-                    placeholder='JSON 卡片原文 {"app":…}'
-                    aria-label="JSON 卡片原文"
+                    placeholder={t('JSON 卡片原文 {"app":…}', 'Raw JSON card {"app":…}')}
+                    aria-label={t('JSON 卡片原文', 'Raw JSON card')}
                     className="min-h-16 font-mono text-xs"
                 />
             );
@@ -465,8 +482,8 @@ function SegmentEditor({
                 <Textarea
                     value={seg.data}
                     onChange={(e) => onChange({ ...seg, data: e.target.value })}
-                    placeholder="XML 卡片原文 <msg>…"
-                    aria-label="XML 卡片原文"
+                    placeholder={t('XML 卡片原文 <msg>…', 'Raw XML card <msg>…')}
+                    aria-label={t('XML 卡片原文', 'Raw XML card')}
                     className="min-h-16 font-mono text-xs"
                 />
             );
@@ -475,8 +492,8 @@ function SegmentEditor({
                 <Textarea
                     value={seg.content}
                     onChange={(e) => onChange({ ...seg, content: e.target.value })}
-                    placeholder="Markdown 内容"
-                    aria-label="Markdown 段内容"
+                    placeholder={t('Markdown 内容', 'Markdown content')}
+                    aria-label={t('Markdown 段内容', 'Markdown segment content')}
                     className="min-h-16 font-mono text-xs"
                 />
             );
@@ -484,27 +501,31 @@ function SegmentEditor({
             return (
                 <div className="grid grid-cols-2 gap-1.5">
                     <Input
+                        aria-label="emoji_id"
                         value={seg.emoji_id}
                         onChange={(e) => onChange({ ...seg, emoji_id: e.target.value })}
                         placeholder="emoji_id"
                         className="font-mono text-xs"
                     />
                     <Input
+                        aria-label="emoji_package_id"
                         value={seg.emoji_package_id}
                         onChange={(e) => onChange({ ...seg, emoji_package_id: e.target.value })}
                         placeholder="emoji_package_id"
                         className="font-mono text-xs"
                     />
                     <Input
+                        aria-label="key"
                         value={seg.key}
                         onChange={(e) => onChange({ ...seg, key: e.target.value })}
                         placeholder="key"
                         className="font-mono text-xs"
                     />
                     <Input
+                        aria-label="summary"
                         value={seg.summary}
                         onChange={(e) => onChange({ ...seg, summary: e.target.value })}
-                        placeholder="summary(可选)"
+                        placeholder={t('summary(可选)', 'summary (optional)')}
                         className="text-xs"
                     />
                 </div>
@@ -514,23 +535,25 @@ function SegmentEditor({
                 <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-2 gap-1.5">
                         <Input
+                            aria-label={t('发送者 QQ', 'Sender QQ number')}
                             value={seg.user_id}
                             onChange={(e) =>
                                 onChange({ ...seg, user_id: e.target.value.replace(/[^\d]/g, '') })
                             }
-                            placeholder="发送者 QQ"
+                            placeholder={t('发送者 QQ', 'Sender QQ number')}
                             className="font-mono text-xs"
                         />
                         <Input
+                            aria-label={t('发送者昵称', 'Sender nickname')}
                             value={seg.nickname}
                             onChange={(e) => onChange({ ...seg, nickname: e.target.value })}
-                            placeholder="发送者昵称"
+                            placeholder={t('发送者昵称', 'Sender nickname')}
                             className="text-xs"
                         />
                     </div>
                     <div>
                         <span className="mb-1 block text-xs text-muted-foreground">
-                            节点内容(可再嵌套)
+                            {t('节点内容(可再嵌套)', 'Node content (can be nested)')}
                         </span>
                         {depth < 3 ? (
                             <MessageBuilder
@@ -542,7 +565,9 @@ function SegmentEditor({
                                 mode="node-content"
                             />
                         ) : (
-                            <p className="text-xs text-destructive">嵌套层级过深</p>
+                            <p className="text-xs text-destructive">
+                                {t('嵌套层级过深', 'Nesting limit reached')}
+                            </p>
                         )}
                     </div>
                 </div>
@@ -551,38 +576,44 @@ function SegmentEditor({
 }
 
 /** A compact human-readable preview line of a built message. */
-export function previewSegments(segs: Seg[]): string {
+export function previewSegments(segs: Seg[], t: Translate = defaultTranslate): string {
     return segs
         .map((s) => {
             switch (s.k) {
                 case 'text':
                     return s.text;
                 case 'at':
-                    return s.qq === 'all' ? '@全体' : `@${s.qq}`;
+                    return s.qq === 'all' ? t('@全体', '@everyone') : `@${s.qq}`;
                 case 'image':
-                    return '[图片]';
+                    return t('[图片]', '[Image]');
                 case 'face':
-                    return `[表情${s.id}]`;
+                    return t(`[表情${s.id}]`, `[Emoji ${s.id}]`);
                 case 'reply':
-                    return '[回复]';
+                    return t('[回复]', '[Reply]');
                 case 'record':
-                    return '[语音]';
+                    return t('[语音]', '[Voice]');
                 case 'video':
-                    return '[视频]';
+                    return t('[视频]', '[Video]');
                 case 'file':
-                    return `[文件${s.name ? ':' + s.name : ''}]`;
+                    return t(
+                        `[文件${s.name ? ':' + s.name : ''}]`,
+                        `[File${s.name ? ': ' + s.name : ''}]`,
+                    );
                 case 'mface':
-                    return '[商城表情]';
+                    return t('[商城表情]', '[Store emoji]');
                 case 'poke':
-                    return '[戳一戳]';
+                    return t('[戳一戳]', '[Poke]');
                 case 'json':
-                    return '[JSON卡片]';
+                    return t('[JSON卡片]', '[JSON card]');
                 case 'xml':
-                    return '[XML卡片]';
+                    return t('[XML卡片]', '[XML card]');
                 case 'markdown':
                     return '[Markdown]';
                 case 'node':
-                    return `[转发:${s.nickname || s.user_id}]`;
+                    return t(
+                        `[转发:${s.nickname || s.user_id}]`,
+                        `[Forward: ${s.nickname || s.user_id}]`,
+                    );
             }
         })
         .join('');
@@ -597,56 +628,56 @@ export function hasNodes(segs: Seg[]): boolean {
  *  first problem string, or null. The forward "all nodes" rule is enforced
  *  separately at the top level (only the forward action's `messages` array must
  *  be all-nodes; a node's own content is a normal message). */
-export function validateSegs(segs: Seg[]): string | null {
+export function validateSegs(segs: Seg[], t: Translate = defaultTranslate): string | null {
     for (const s of segs) {
         switch (s.k) {
             case 'at':
                 if (!s.qq.trim()) {
-                    return '@ 段未选择对象';
+                    return t('@ 段未选择对象', 'Select someone to mention');
                 }
 
                 break;
             case 'image':
                 if (!s.file.trim()) {
-                    return '图片段未指定来源';
+                    return t('图片段未指定来源', 'Image segment needs a source');
                 }
 
                 break;
             case 'record':
                 if (!s.file.trim()) {
-                    return '语音段未指定来源';
+                    return t('语音段未指定来源', 'Voice segment needs a source');
                 }
 
                 break;
             case 'video':
                 if (!s.file.trim()) {
-                    return '视频段未指定来源';
+                    return t('视频段未指定来源', 'Video segment needs a source');
                 }
 
                 break;
             case 'file':
                 if (!s.file.trim()) {
-                    return '文件段未指定来源';
+                    return t('文件段未指定来源', 'File segment needs a source');
                 }
 
                 break;
             case 'reply':
                 if (!s.id.trim()) {
-                    return '回复段缺少消息 id';
+                    return t('回复段缺少消息 id', 'Reply segment needs a message ID');
                 }
 
                 break;
 
             case 'node': {
                 if (!s.user_id.trim()) {
-                    return '转发节点缺少发送者 QQ';
+                    return t('转发节点缺少发送者 QQ', 'Forward node needs a sender QQ number');
                 }
 
                 if (s.content.length === 0) {
-                    return '转发节点内容为空';
+                    return t('转发节点内容为空', 'Forward node is empty');
                 }
 
-                const inner = validateSegs(s.content);
+                const inner = validateSegs(s.content, t);
 
                 if (inner) {
                     return inner;

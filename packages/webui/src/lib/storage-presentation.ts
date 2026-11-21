@@ -1,3 +1,4 @@
+import { defaultTranslate, type Translate } from '@/i18n';
 import {
     ALL_ACCOUNTS_CONFIRMATION,
     type LogStorageSettings,
@@ -58,33 +59,32 @@ export function buildLogSettingsPatch(
     return patch;
 }
 
-export function logStoragePresentation(input: {
-    state: LogStorageState;
-    totalBytes: number;
-    maxTotalBytes: number;
-}): LogStoragePresentation {
+export function logStoragePresentation(
+    input: { state: LogStorageState; totalBytes: number; maxTotalBytes: number },
+    t: Translate = defaultTranslate,
+): LogStoragePresentation {
     const percent =
         input.maxTotalBytes > 0
             ? Math.max(0, Math.min(100, (input.totalBytes / input.maxTotalBytes) * 100))
             : 0;
 
     if (input.state === 'degraded') {
-        return { label: '磁盘写入已暂停', tone: 'danger', percent };
+        return { label: t('磁盘写入已暂停', 'Disk logging paused'), tone: 'danger', percent };
     }
 
     if (input.state === 'warning') {
-        return { label: '清理异常', tone: 'warning', percent };
+        return { label: t('清理异常', 'Cleanup issue'), tone: 'warning', percent };
     }
 
     if (input.state === 'disabled') {
-        return { label: '文件日志已关闭', tone: 'neutral', percent };
+        return { label: t('文件日志已关闭', 'File logging disabled'), tone: 'neutral', percent };
     }
 
     if (percent >= 80) {
-        return { label: '接近上限', tone: 'warning', percent };
+        return { label: t('接近上限', 'Near capacity'), tone: 'warning', percent };
     }
 
-    return { label: '正常', tone: 'success', percent };
+    return { label: t('正常', 'Healthy'), tone: 'success', percent };
 }
 
 export function isAllAccountsConfirmation(value: string): boolean {

@@ -36,6 +36,7 @@ import {
     demoSystemSettings,
     demoUi,
 } from './fixtures';
+import type { TutorialLanguage } from './tutorial-options';
 
 export type DemoScenario = 'setup' | 'ready' | 'offline' | 'failure';
 export type TutorialBaseline = 'clean' | 'detected' | 'ready' | 'offline';
@@ -428,6 +429,13 @@ function createDemoState(): DemoState {
 export class DemoApi {
     private state = createDemoState();
     private revision = 0;
+    private readonly chapterLanguage?: TutorialLanguage;
+
+    // An embedded chapter fixes its language. The free-practice API serves
+    // bilingual notices so switching its UI does not reload the consent gate.
+    constructor(chapterLanguage?: TutorialLanguage) {
+        this.chapterLanguage = chapterLanguage;
+    }
 
     get tutorialRevision() {
         return this.revision;
@@ -764,23 +772,35 @@ export class DemoApi {
         }
 
         if (path === '/api/agreements' && method === 'GET') {
+            const notice = (zh: string, en: string) =>
+                this.chapterLanguage === 'zh'
+                    ? zh
+                    : this.chapterLanguage === 'en'
+                      ? en
+                      : `${zh}\n\n${en}`;
             return json({
                 version: 'demo-v1',
                 consentRequired: !this.state.consent,
                 documents: [
                     {
                         id: 'eula',
-                        title: 'DEMO 使用练习 / Practice agreement',
+                        title: notice('示例使用说明', 'Sample use notice'),
                         declaredVersion: 'DEMO',
                         effectiveDate: '2026-07-24',
-                        text: '这是模拟练习文本，不是生产协议。\nPractice only. All operations are in browser memory. No QQ connection or delivery, no filesystem writes, no physical desktop. Never enter actual passwords, tokens or account data. Production uses the supplied EULA and LICENSE.',
+                        text: notice(
+                            '这是练习内容，不是正式使用说明。所有操作只在浏览器内存中进行，不连接 QQ、不发送消息、不写入磁盘、不打开真实桌面。不要输入真实密码、令牌或账号数据。正式部署以随附的使用说明、隐私说明和许可证为准。',
+                            'This notice is for practice only. Operations run in browser memory: no QQ connection, message delivery, disk writes, or physical desktop. Do not enter actual passwords, tokens, or account data. A real deployment uses its supplied use and privacy notices and license.',
+                        ),
                     },
                     {
                         id: 'privacy',
-                        title: 'DEMO 隐私提示 / Privacy reminder',
+                        title: notice('示例隐私说明', 'Sample privacy notice'),
                         declaredVersion: 'DEMO',
                         effectiveDate: '2026-07-24',
-                        text: '示例登录密码 DemoOnly!2026；新密码 DemoChanged!2026；2FA 123456。\nUse only these public examples. Nothing is persisted. Reset or refresh clears the simulator.',
+                        text: notice(
+                            `仅使用公开示例：访问密码 ${DEMO_PASSWORD}、新密码 ${DEMO_NEW_PASSWORD}、双重验证码 ${DEMO_TOTP}。练习数据不会持久化，重置或刷新即清空。`,
+                            `Use only the public examples: access password ${DEMO_PASSWORD}, new password ${DEMO_NEW_PASSWORD}, and verification code ${DEMO_TOTP}. Practice data is not persisted; reset or reload to clear it.`,
+                        ),
                     },
                 ],
             });

@@ -1,10 +1,30 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import type * as React from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingWizardPage } from '../src/components/pages/onboarding-wizard-page';
+import { LocaleProvider, translator, useT } from '../src/i18n';
+import type * as I18n from '../src/i18n';
+import { WizardSteps, type WizardStep } from '../src/components/interior/wizard-steps';
+import { SegmentedControl } from '../src/components/interior/segmented-control';
+import { elements, hookHost } from './helpers/hook-host';
 
+vi.mock('react', async (original) => ({ ...(await original<typeof React>()) }));
+vi.mock('motion/react', async (original) => ({
+    ...(await original<typeof import('motion/react')>()),
+    useReducedMotionConfig: () => true,
+}));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: vi.fn(locale.useT) };
+});
 vi.mock('@/contexts/ThemeContext', () => ({
     useTheme: () => ({
-        appearance: { palette: 'default', background: { type: 'none' }, reduceMotion: true, disableMotion: true },
+        appearance: {
+            palette: 'default',
+            background: { type: 'none' },
+            reduceMotion: true,
+            disableMotion: true,
+        },
         mode: 'system',
         setMode: vi.fn(),
     }),
@@ -14,6 +34,7 @@ vi.mock('@/contexts/ActionFeedbackContext', () => ({
     useActionFeedback: () => ({ runAction: vi.fn() }),
     actionErrorMessage: (error: unknown) => String(error),
 }));
+afterEach(() => vi.restoreAllMocks());
 
 const callbacks = {
     agreementVersion: 'fixture-agreements-version',
@@ -64,6 +85,9 @@ describe('OnboardingWizardPage document workspace', () => {
         expect(html).toContain('隐私说明');
         expect(html).toContain('tabindex="0"');
         expect(html).toContain('aria-pressed="false"');
+        expect(html).toMatch(
+            /<button(?=[^>]*data-tutorial-control="agreement-ack")(?=[^>]*aria-pressed="false")[^>]*>/,
+        );
         expect(html).toContain('我已阅读《使用说明》和《隐私说明》');
         expect(html).toMatch(/<button[^>]*disabled=""[^>]*>[\s\S]*?确认并继续/);
         expect(html).toContain('退出');
@@ -71,6 +95,87 @@ describe('OnboardingWizardPage document workspace', () => {
         expect(html).not.toContain('不同意并退出');
         expect(html).not.toContain('跳过');
         expect(html).not.toContain('id="onboarding-cpw-new"');
+    });
+
+    it('shows English setup controls without changing the canonical notice text, version, or gate', () => {
+        const html = renderToStaticMarkup(
+            <LocaleProvider initial="en">
+                <OnboardingWizardPage
+                    {...callbacks}
+                    documents={documents}
+                    needsConsent
+                    mustChangePassword
+                />
+            </LocaleProvider>,
+        );
+        expect(html).toContain('切换到简体中文');
+        expect(html).toContain('Complete first-time setup');
+        expect(html).toContain('I have read the Usage Notice and Privacy Notice');
+        expect(html).toContain('说明正文保持为主要阅读内容。');
+        expect(html).toContain('Version 1.0 · Effective 2026-06-19');
+        expect(html).toContain('Notices version fixture-');
+        expect(html).toMatch(
+            /<button(?=[^>]*data-tutorial-control="agreement-ack")(?=[^>]*aria-pressed="false")[^>]*>/,
+        );
+        expect(html).toMatch(/<button[^>]*disabled=""[^>]*>[\s\S]*?Confirm and continue/);
+        expect(html).not.toContain('id="onboarding-cpw-new"');
+    });
+
+    it('keeps the selected notice and active acknowledgment on a language switch', async () => {
+        const onAccept = vi.fn(async () => ({ success: true }));
+        const onConsentComplete = vi.fn();
+        vi.mocked(useT).mockReturnValueOnce(translator('zh'));
+        const wizard = hookHost().render(() =>
+            OnboardingWizardPage({
+                ...callbacks,
+                onAccept,
+                onConsentComplete,
+                documents,
+                needsConsent: true,
+                mustChangePassword: true,
+            }),
+        );
+        const steps = elements(wizard).find((element) => element.type === WizardSteps)!.props
+            .steps as WizardStep[];
+        const agreement = steps[0].content as React.ReactElement;
+        const Agreement = agreement.type as React.FunctionComponent;
+        const host = hookHost();
+        let language: I18n.Language = 'zh';
+
+        const render = () => {
+            vi.mocked(useT).mockReturnValueOnce(translator(language));
+            return elements(host.render(() => Agreement(agreement.props as object)));
+        };
+
+        const acknowledgment = () =>
+            render().find((element) => element.props['data-tutorial-control'] === 'agreement-ack')!;
+        const confirm = () =>
+            render().find(
+                (element) =>
+                    Array.isArray(element.props.children) &&
+                    element.props.children.some(
+                        (value) =>
+                            value === '确认并继续' ||
+                            value === 'Confirm and continue' ||
+                            value === 'Submitting…',
+                    ),
+            )!;
+
+        expect(confirm().props.disabled).toBe(true);
+        (confirm().props.onClick as () => void)();
+        expect(onAccept).not.toHaveBeenCalled();
+        const noticePicker = render().find((element) => element.type === SegmentedControl)!;
+        (noticePicker.props.onValueChange as (id: string) => void)('privacy');
+        (acknowledgment().props.onClick as () => void)();
+        language = 'en';
+        expect(acknowledgment().props['aria-pressed']).toBe(true);
+        expect(render().find((element) => element.type === SegmentedControl)?.props.value).toBe(
+            'privacy',
+        );
+        expect(confirm().props.disabled).toBe(false);
+        (confirm().props.onClick as () => void)();
+        expect(onAccept).toHaveBeenCalledOnce();
+        await vi.waitFor(() => expect(onConsentComplete).toHaveBeenCalledOnce());
     });
 
     it('uses instruction labels with the existing eula and privacy identifiers', () => {

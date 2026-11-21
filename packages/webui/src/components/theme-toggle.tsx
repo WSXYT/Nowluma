@@ -4,23 +4,24 @@ import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
 import { GlassMaterial } from '@/components/ui/glass-material';
 import { paletteResolved, useTheme, type ThemeMode } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import { useT } from '@/i18n';
 import '@/styles/workspace.css';
 
-const OPTIONS: { value: ThemeMode; icon: typeof Sun; label: string }[] = [
-    { value: 'system', icon: Monitor, label: '跟随系统' },
-    { value: 'light', icon: Sun, label: '浅色' },
-    { value: 'dark', icon: Moon, label: '深色' },
-];
-
 export function ThemeToggle({ className }: { className?: string }) {
+    const t = useT();
+    const options = [
+        { value: 'system', icon: Monitor, label: t('跟随系统', 'System') },
+        { value: 'light', icon: Sun, label: t('浅色', 'Light') },
+        { value: 'dark', icon: Moon, label: t('深色', 'Dark') },
+    ];
     const { appearance, mode, setMode, managedBy, performance } = useTheme();
     const reduced = useReducedMotionConfig() || appearance.reduceMotion || appearance.disableMotion;
     const { open, activeIndex, rootRef, triggerProps, listProps, getItemProps } = useDropdown({
-        items: OPTIONS,
+        items: options,
         value: mode,
         onChange: (value) => setMode(value as ThemeMode),
     });
-    const selected = OPTIONS.find((option) => option.value === mode) ?? OPTIONS[0];
+    const selected = options.find((option) => option.value === mode) ?? options[0];
     const SelectedIcon = selected.icon;
 
     if (managedBy || paletteResolved(appearance.palette)) {
@@ -31,8 +32,8 @@ export function ThemeToggle({ className }: { className?: string }) {
         <div ref={rootRef} className={cn('workspace-theme', className)}>
             <button
                 {...triggerProps}
-                aria-label={`切换主题：${selected.label}`}
-                title={`主题：${selected.label}`}
+                aria-label={t(`切换主题：${selected.label}`, `Change theme: ${selected.label}`)}
+                title={t(`主题：${selected.label}`, `Theme: ${selected.label}`)}
                 className="ui-glass workspace-icon-button workspace-theme-trigger"
                 data-press-scale=""
             >
@@ -55,7 +56,11 @@ export function ThemeToggle({ className }: { className?: string }) {
                         className="ui-glass ui-glass-menu workspace-theme-menu"
                     >
                         <GlassMaterial />
-                        <ul {...listProps} aria-label="主题" className="workspace-theme-options">
+                        <ul
+                            {...listProps}
+                            aria-label={t('主题', 'Theme')}
+                            className="workspace-theme-options"
+                        >
                             <motion.li
                                 aria-hidden="true"
                                 role="presentation"
@@ -73,7 +78,7 @@ export function ThemeToggle({ className }: { className?: string }) {
                                 }
                                 className="workspace-theme-active"
                             />
-                            {OPTIONS.map(({ value, label, icon: OptionIcon }, index) => (
+                            {options.map(({ value, label, icon: OptionIcon }, index) => (
                                 <li
                                     key={value}
                                     {...getItemProps(index)}

@@ -8,9 +8,24 @@ import {
 import { DEMO_NEW_PASSWORD } from '../src/demo/constants';
 import { ChangePasswordForm } from '../src/components/pages/change-password-form';
 import { InlineValidation } from '../src/components/interior/inline-validation';
+import type * as I18n from '../src/i18n';
 import { elements, hookHost } from './helpers/hook-host';
 
+const language = vi.hoisted(() => ({ current: 'zh' as I18n.Language }));
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return {
+        ...locale,
+        useT: () => locale.translator(language.current),
+        useLocale: () => ({
+            language: language.current,
+            locale: language.current === 'en' ? 'en' : 'zh-CN',
+            locked: false,
+            setLanguage: vi.fn(),
+        }),
+    };
+});
 vi.mock('motion/react', async (original) => ({
     ...(await original<typeof import('motion/react')>()),
     useReducedMotionConfig: () => true,
@@ -76,6 +91,7 @@ const expectAssessment = (
 };
 
 beforeEach(() => {
+    language.current = 'zh';
     vi.useFakeTimers();
     host = hookHost();
     formHost = hookHost();
@@ -256,6 +272,7 @@ function formHarness(checkStrength: ComponentProps<typeof ChangePasswordForm>['c
     return {
         form,
         input,
+        field,
         assessment: () => {
             const strength = elements(form()).find((item) => item.type === PasswordStrength)!;
             return render(strength.props as ComponentProps<typeof PasswordStrength>);
@@ -268,6 +285,35 @@ function formHarness(checkStrength: ComponentProps<typeof ChangePasswordForm>['c
 }
 
 describe('ChangePasswordForm server validation and normalized display', () => {
+    it('keeps the entered password and strength result when switching languages', async () => {
+        const checkStrength = vi.fn(async () => ({
+            rules: [{ id: 'length', label: '长度不少于 10 位', ok: true }],
+            valid: true,
+        }));
+        const form = formHarness(checkStrength);
+        form.input(DEMO_NEW_PASSWORD);
+        await vi.advanceTimersByTimeAsync(180);
+        expect(form.actions()).toMatchObject({ canSubmit: true, submitLabel: '保存新密码' });
+
+        language.current = 'en';
+        expect(form.field('cpw-new').props).toMatchObject({
+            label: 'New password',
+            value: DEMO_NEW_PASSWORD,
+        });
+        expect(form.field('cpw-confirm').props).toMatchObject({
+            label: 'Confirm new password',
+            value: DEMO_NEW_PASSWORD,
+        });
+        expect(form.actions()).toMatchObject({ canSubmit: true, submitLabel: 'Save new password' });
+        expect(
+            elements(form.assessment()).some(
+                (item) => item.props.children === 'At least 10 characters',
+            ),
+        ).toBe(true);
+        await vi.advanceTimersByTimeAsync(180);
+        expect(checkStrength).toHaveBeenCalledExactlyOnceWith(DEMO_NEW_PASSWORD);
+    });
+
     it('keeps server validity distinct from heuristic strength and preserves the 180 ms debounce', async () => {
         const rules = [{ id: 'server-rule', label: '服务器要求', ok: true }];
         const checkStrength = vi
@@ -342,12 +388,9 @@ describe('ChangePasswordForm server validation and normalized display', () => {
             await vi.advanceTimersByTimeAsync(180);
             const tree = form.assessment();
             expectAssessment(tree, 1, 5, '很弱', 'destructive');
-            expect(
-                elements(tree).find((item) => item.props.role === 'alert')?.props.children,
-            ).toEqual([
-                '密码强度校验失败：',
-                failure === 'request failure' ? '网络错误' : '服务器未返回密码强度规则',
-            ]);
+            expect(elements(tree).find((item) => item.props.role === 'alert')?.props.children).toBe(
+                `密码强度校验失败：${failure === 'request failure' ? '网络错误' : '服务器未返回密码强度规则'}`,
+            );
             expect(form.actions()).toMatchObject({ canAttempt: true, canSubmit: false });
             expect(elements(form.form()).some((item) => item.props['aria-busy'] === true)).toBe(
                 false,

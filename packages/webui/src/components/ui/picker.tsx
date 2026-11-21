@@ -11,6 +11,7 @@ import { RefreshCw, Search } from 'lucide-react';
 import { SkeletonSwap } from '@/components/interior/skeleton-swap';
 import { cn } from '@/lib/utils';
 import { GlassMaterial } from '@/components/ui/glass-material';
+import { useT } from '@/i18n';
 
 export interface PickerOption {
     value: string;
@@ -54,13 +55,14 @@ export function Picker({
     loading,
     error,
     onRefresh,
-    placeholder = '选择…',
+    placeholder,
     validateRaw,
     ariaLabel,
     className,
     disabled,
 }: PickerProps) {
     const reduced = useReducedMotionConfig();
+    const t = useT();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [scrollTop, setScrollTop] = useState(0);
@@ -266,7 +268,7 @@ export function Picker({
                     />
                 )}
                 <span className="min-w-0 flex-1 truncate text-left">
-                    {selected ? selected.label : value || placeholder}
+                    {selected ? selected.label : value || (placeholder ?? t('选择…', 'Select…'))}
                     {selected?.sub && (
                         <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
                             {selected.sub}
@@ -316,7 +318,7 @@ export function Picker({
                             <input
                                 ref={searchRef}
                                 value={query}
-                                aria-label={`${ariaLabel}：搜索`}
+                                aria-label={`${ariaLabel}${t('：搜索', ': search')}`}
                                 onChange={(e) => {
                                     setQuery(e.target.value);
                                     setActive(0);
@@ -326,13 +328,13 @@ export function Picker({
                                         listRef.current.scrollTop = 0;
                                     }
                                 }}
-                                placeholder="搜索名称 / 号码…"
+                                placeholder={t('搜索名称 / 号码…', 'Search name / number…')}
                                 className="min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm"
                             />
                             {onRefresh && (
                                 <button
                                     type="button"
-                                    title="刷新"
+                                    title={t('刷新', 'Refresh')}
                                     onClick={onRefresh}
                                     disabled={disabled || loading}
                                     className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-50"
@@ -356,11 +358,21 @@ export function Picker({
                                 error ? (
                                     <div className="px-3 py-6 text-center text-xs text-muted-foreground">
                                         <p className="text-destructive">{error}</p>
-                                        <p className="mt-1">可直接在上方输入号码后回车使用</p>
+                                        <p className="mt-1">
+                                            {t(
+                                                '可直接在上方输入号码后回车使用',
+                                                'You can also type a number above and press Enter.',
+                                            )}
+                                        </p>
                                     </div>
                                 ) : totalRows === 0 ? (
                                     <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-                                        无匹配项{query && '；输入完整号码可直接使用'}
+                                        {t('无匹配项', 'No matches')}
+                                        {query &&
+                                            t(
+                                                '；输入完整号码可直接使用',
+                                                '; type a complete number to use it directly',
+                                            )}
                                     </div>
                                 ) : (
                                     <div
@@ -482,7 +494,7 @@ export function Picker({
                                                         </>
                                                     ) : (
                                                         <span className="text-sm">
-                                                            使用{' '}
+                                                            {t('使用', 'Use')}{' '}
                                                             <span className="font-mono text-primary">
                                                                 {rawRow}
                                                             </span>

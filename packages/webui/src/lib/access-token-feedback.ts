@@ -1,3 +1,4 @@
+import { defaultTranslate, type Translate } from '@/i18n';
 import { assessAccessToken } from '@nowluma/common/access-token';
 
 export interface AccessTokenFeedback {
@@ -10,19 +11,25 @@ export function accessTokenFeedback(
     token: string,
     userInputs: readonly (string | number)[],
     allowEmpty: boolean,
+    t: Translate = defaultTranslate,
 ): AccessTokenFeedback {
     if (!token) {
         return allowEmpty
             ? {
                   valid: true,
                   tone: 'warning',
-                  message: '留空将关闭该服务端的鉴权，仅建议在本机使用。',
+                  message: t(
+                      '留空将关闭该服务端的鉴权，仅建议在本机使用。',
+                      'Leaving the token blank disables authentication. Use this only for local access.',
+                  ),
               }
             : {
                   valid: false,
                   tone: 'error',
-                  message:
+                  message: t(
                       '未绑定本机地址时，远程访问必须填写令牌；请生成令牌或将主机改为 127.0.0.1。',
+                      'Remote access requires a token when the listener is not bound to loopback. Generate a token or set the host to 127.0.0.1.',
+                  ),
               };
     }
 
@@ -32,7 +39,10 @@ export function accessTokenFeedback(
         return {
             valid: false,
             tone: 'error',
-            message: '令牌至少需要 16 个字符，请继续补充或重新生成。',
+            message: t(
+                '令牌至少需要 16 个字符，请继续补充或重新生成。',
+                'Use at least 16 characters or generate a new token.',
+            ),
         };
     }
 
@@ -40,13 +50,16 @@ export function accessTokenFeedback(
         return {
             valid: false,
             tone: 'error',
-            message: '令牌容易被猜中，请使用右侧按钮生成新的随机令牌。',
+            message: t(
+                '令牌容易被猜中，请使用右侧按钮生成新的随机令牌。',
+                'This token is easy to guess. Use the generate button to create a random token.',
+            ),
         };
     }
 
     return {
         valid: true,
         tone: 'success',
-        message: '令牌强度符合要求。',
+        message: t('令牌强度符合要求。', 'The token meets the strength requirements.'),
     };
 }

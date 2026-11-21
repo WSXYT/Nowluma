@@ -5,12 +5,12 @@
   "description": "MCP server exposing the Nowluma OneBot action catalog (docs + JSON Schemas) and optional execution to LLM clients.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WSXYT/Nowluma.git",
+    "url": "git+https://github.com/NowLuma/NowLuma.git",
     "directory": "packages/mcp"
   },
-  "homepage": "https://github.com/WSXYT/Nowluma#readme",
+  "homepage": "https://github.com/NowLuma/NowLuma#readme",
   "bugs": {
-    "url": "https://github.com/WSXYT/Nowluma/issues"
+    "url": "https://github.com/NowLuma/NowLuma/issues"
   },
   "type": "module",
   "bin": {

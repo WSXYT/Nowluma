@@ -13,12 +13,13 @@ import { cn } from '@/lib/utils';
 import type { HookProcessInfo } from '@/types';
 import { useAppState } from '@/contexts/AppStateContext';
 import { useLayout } from '@/contexts/LayoutContext';
+import { useLocale, useT } from '@/i18n';
 import '@/styles/console-pages.css';
 
-const SORT_OPTIONS: { value: string; label: string }[] = [
-    { value: 'pid', label: 'PID' },
-    { value: 'name', label: '名称' },
-    { value: 'status', label: '状态' },
+const SORT_OPTIONS = [
+    { value: 'pid', zh: 'PID', en: 'PID' },
+    { value: 'name', zh: '名称', en: 'Name' },
+    { value: 'status', zh: '状态', en: 'Status' },
 ];
 
 function qqAvatarUrl(uin: string) {
@@ -36,14 +37,14 @@ const STATUS_ORDER: Record<HookProcessInfo['status'], number> = {
     error: 6,
 };
 
-const processStatusLabel: Record<HookProcessInfo['status'], string> = {
-    available: '可加载',
-    loading: '加载中',
-    connecting: '等待连接',
-    loaded: '等待登录',
-    online: '已在线',
-    error: '错误',
-    disconnected: '已断开',
+const processStatusLabels: Record<HookProcessInfo['status'], [string, string]> = {
+    available: ['可加载', 'Available'],
+    loading: ['加载中', 'Loading'],
+    connecting: ['等待连接', 'Waiting for connection'],
+    loaded: ['等待登录', 'Waiting for sign-in'],
+    online: ['已在线', 'Online'],
+    error: ['错误', 'Error'],
+    disconnected: ['已断开', 'Disconnected'],
 };
 
 function processStatusClass(status: HookProcessInfo['status']) {
@@ -71,6 +72,8 @@ function detectedIdentity(proc: HookProcessInfo): { uin: string; nickname: strin
 }
 
 export function ProcessesPage() {
+    const t = useT();
+    const { locale } = useLocale();
     const { processList, processOps, refreshProcesses, resources } = useAppState();
     const { statusOf, banner: processActionStatus, load, unload, refresh } = processOps;
     const { pages, setPages } = useLayout();
@@ -92,7 +95,7 @@ export function ProcessesPage() {
         const arr = [...processList];
 
         if (sortKey === 'name') {
-            arr.sort((a, b) => a.name.localeCompare(b.name));
+            arr.sort((a, b) => a.name.localeCompare(b.name, locale));
         } else if (sortKey === 'status') {
             arr.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.pid - b.pid);
         } else {
@@ -100,7 +103,7 @@ export function ProcessesPage() {
         }
 
         return arr;
-    }, [processList, sortKey]);
+    }, [processList, sortKey, locale]);
 
     const selected = sorted.find((proc) => proc.pid === selectedPid) ?? null;
 
@@ -109,8 +112,13 @@ export function ProcessesPage() {
             <header className="cp-document-header">
                 <div className="cp-toolbar">
                     <div className="min-w-0">
-                        <h2 className="cp-page-heading">QQ 进程</h2>
-                        <p className="cp-lede">选择实际 PID，查看账号识别与接入状态。</p>
+                        <h2 className="cp-page-heading">{t('QQ 进程', 'QQ processes')}</h2>
+                        <p className="cp-lede">
+                            {t(
+                                '选择实际 PID，查看账号识别与接入状态。',
+                                'Select a process by PID to see its detected account and connection status.',
+                            )}
+                        </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <DesktopButton />
@@ -120,7 +128,7 @@ export function ProcessesPage() {
                             onClick={refreshProcesses}
                             disabled={!resources.processList.ready}
                         >
-                            <RefreshCw className="size-3.5" /> 刷新
+                            <RefreshCw className="size-3.5" /> {t('刷新', 'Refresh')}
                         </Button>
                     </div>
                 </div>
@@ -149,11 +157,11 @@ export function ProcessesPage() {
                     )}
                 </AnimatePresence>
                 {resources.processList.error && processList.length > 0 && (
-                    <div
-                        role="alert"
-                        className="cp-inline-notice text-destructive"
-                    >
-                        {resources.processList.error}；当前显示上次成功读取的进程状态。
+                    <div role="alert" className="cp-inline-notice text-destructive">
+                        {t(
+                            `${resources.processList.error}；当前显示上次成功读取的进程状态。`,
+                            `${resources.processList.error} Showing the last successfully loaded process status.`,
+                        )}
                     </div>
                 )}
             </header>
@@ -164,43 +172,55 @@ export function ProcessesPage() {
                 lines={6}
                 lineHeight={32}
                 barHeight={10}
-                label="进程列表"
+                label={t('进程列表', 'Process list')}
                 className={resources.processList.ready ? 'skeleton-swap-fluid min-h-[192px]' : ''}
             >
                 {resources.processList.ready ? (
                     resources.processList.error && processList.length === 0 ? (
-                        <div
-                            role="alert"
-                            className="cp-empty-state text-destructive"
-                        >
+                        <div role="alert" className="cp-empty-state text-destructive">
                             <AlertCircle className="size-8 opacity-70" strokeWidth={1.5} />
-                            <p className="text-sm">{resources.processList.error}</p>
+                            <p className="text-sm">
+                                {t(
+                                    resources.processList.error,
+                                    `Failed to read the process list: ${resources.processList.error}`,
+                                )}
+                            </p>
                             <Button variant="glass" size="sm" onClick={refreshProcesses}>
-                                <RefreshCw className="size-3.5" /> 重试
+                                <RefreshCw className="size-3.5" /> {t('重试', 'Retry')}
                             </Button>
                         </div>
                     ) : processList.length === 0 ? (
                         <div className="cp-empty-state text-muted-foreground">
                             <Cpu className="size-8 opacity-40" strokeWidth={1.5} />
-                            <p className="text-sm">未检测到可加载 QQ 主进程</p>
-                            <p className="text-xs text-muted-foreground/80">启动 QQ 后刷新</p>
+                            <p className="text-sm">
+                                {t('未检测到可加载 QQ 主进程', 'No eligible QQ process detected')}
+                            </p>
+                            <p className="text-xs text-muted-foreground/80">
+                                {t('启动 QQ 后刷新', 'Start QQ, then refresh')}
+                            </p>
                         </div>
                     ) : (
                         <div className="cp-split">
                             {/* master: compact process list */}
-                            <section aria-label="进程列表" className="cp-panel cp-process-list">
+                            <section
+                                aria-label={t('进程列表', 'Process list')}
+                                className="cp-panel cp-process-list"
+                            >
                                 <div className="cp-panel-head">
                                     <h2 className="text-sm font-semibold">
-                                        进程{' '}
+                                        {t('进程', 'Processes')}{' '}
                                         <span className="ml-1 font-mono text-xs font-normal text-muted-foreground">
                                             {sorted.length}
                                         </span>
                                     </h2>
                                     {processList.length > 1 && (
                                         <SegmentedControl
-                                            label="排序方式"
+                                            label={t('排序方式', 'Sort by')}
                                             value={sortKey}
-                                            options={SORT_OPTIONS}
+                                            options={SORT_OPTIONS.map(({ value, zh, en }) => ({
+                                                value,
+                                                label: t(zh, en),
+                                            }))}
                                             onValueChange={(processesSort) =>
                                                 setPages({ processesSort })
                                             }
@@ -211,13 +231,17 @@ export function ProcessesPage() {
                                     {sorted.map((proc) => {
                                         const identity = detectedIdentity(proc);
                                         const isCurrent = selected?.pid === proc.pid;
+                                        const statusLabel = processStatusLabels[proc.status];
                                         return (
                                             <button
                                                 key={proc.pid}
                                                 type="button"
                                                 onClick={() => setSelectedPid(proc.pid)}
                                                 aria-current={isCurrent ? 'true' : undefined}
-                                                aria-label={`选择进程 PID ${proc.pid}${identity ? `，QQ ${identity.uin}` : ''}`}
+                                                aria-label={t(
+                                                    `选择进程 PID ${proc.pid}${identity ? `，QQ ${identity.uin}` : ''}`,
+                                                    `Select process PID ${proc.pid}${identity ? `, QQ ${identity.uin}` : ''}`,
+                                                )}
                                                 className="cp-row cp-process-row outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset"
                                             >
                                                 {isCurrent && (
@@ -242,7 +266,8 @@ export function ProcessesPage() {
                                                     <div
                                                         className={cn(
                                                             'flex size-7 shrink-0 items-center justify-center text-muted-foreground',
-                                                            proc.status === 'error' && 'text-destructive',
+                                                            proc.status === 'error' &&
+                                                                'text-destructive',
                                                         )}
                                                     >
                                                         {proc.status === 'error' ? (
@@ -265,7 +290,9 @@ export function ProcessesPage() {
                                                                 processStatusClass(proc.status),
                                                             )}
                                                         >
-                                                            {processStatusLabel[proc.status]}
+                                                            {statusLabel
+                                                                ? t(...statusLabel)
+                                                                : proc.status}
                                                         </span>
                                                     </div>
                                                     <div className="mt-0.5 break-words font-mono text-meta text-muted-foreground tabular-nums">
@@ -297,17 +324,23 @@ export function ProcessesPage() {
                                 />
                             ) : (
                                 <section
-                                    aria-label="进程详情"
+                                    aria-label={t('进程详情', 'Process details')}
                                     className="cp-panel cp-empty-state text-muted-foreground"
                                 >
                                     <Cpu className="size-8 opacity-40" strokeWidth={1.5} />
                                     <h2 className="text-base font-medium text-foreground">
                                         {selectedPid === null
-                                            ? '选择一个进程'
-                                            : `进程 ${selectedPid} 已不在列表中`}
+                                            ? t('选择一个进程', 'Select a process')
+                                            : t(
+                                                  `进程 ${selectedPid} 已不在列表中`,
+                                                  `Process ${selectedPid} is no longer listed`,
+                                              )}
                                     </h2>
                                     <p className="text-sm">
-                                        从进程列表选择后，查看详情并执行操作。
+                                        {t(
+                                            '从进程列表选择后，查看详情并执行操作。',
+                                            'Select a process from the list to view its details and actions.',
+                                        )}
                                     </p>
                                 </section>
                             )}
@@ -319,13 +352,16 @@ export function ProcessesPage() {
             <ConfirmDialog
                 open={!!confirm}
                 onOpenChange={(o) => !o && setConfirm(null)}
-                title="确认卸载 Nowluma？"
+                title={t('确认卸载 Nowluma？', 'Unload Nowluma?')}
                 description={
                     confirm
-                        ? `将从进程 ${confirm.name} 卸载 Nowluma 注入，可能导致当前会话断开。`
+                        ? t(
+                              `将从进程 ${confirm.name} 卸载 Nowluma 注入，可能导致当前会话断开。`,
+                              `This unloads Nowluma from ${confirm.name} and may disconnect the current session.`,
+                          )
                         : ''
                 }
-                confirmText="卸载"
+                confirmText={t('卸载', 'Unload')}
                 destructive
                 onConfirm={async () => {
                     if (confirm) {
@@ -356,6 +392,7 @@ function ProcessDetail({
     onUnload,
     onRefreshPipe,
 }: ProcessDetailProps) {
+    const t = useT();
     const identity = detectedIdentity(proc);
     const name = identity?.nickname || identity?.uin || proc.name;
     const op = statusOf(proc.pid);
@@ -364,13 +401,18 @@ function ProcessDetail({
     const refreshing = op === 'refresh';
     const busy = op != null || proc.status === 'loading';
     const canUnload = proc.injected;
+    const statusLabel = processStatusLabels[proc.status];
     // Refresh is meaningful whenever a hook may exist (so the user can re-check
     // the pipe and trigger a reconnect on demand).
     const showRefresh =
         proc.injected || proc.status === 'connecting' || proc.status === 'disconnected';
 
     return (
-        <section aria-label="进程详情" className="cp-panel cp-process-detail">
+        <section
+            aria-label={t('进程详情', 'Process details')}
+            data-tutorial-control="process-detail"
+            className="cp-panel cp-process-detail"
+        >
             <div className="cp-toolbar">
                 <div className="flex min-w-0 items-center gap-3">
                     {identity ? (
@@ -395,7 +437,7 @@ function ProcessDetail({
                     </div>
                 </div>
                 <span className={cn('text-sm font-medium', processStatusClass(proc.status))}>
-                    {processStatusLabel[proc.status]}
+                    {statusLabel ? t(...statusLabel) : proc.status}
                 </span>
             </div>
 
@@ -405,8 +447,11 @@ function ProcessDetail({
                         variant="glass"
                         size="sm"
                         disabled={busy}
-                        aria-label={`刷新进程 ${proc.pid} 管道状态`}
-                        title="刷新管道状态 / 重连"
+                        aria-label={t(
+                            `刷新进程 ${proc.pid} 管道状态`,
+                            `Refresh connection for process ${proc.pid}`,
+                        )}
+                        title={t('刷新管道状态 / 重连', 'Refresh connection status or reconnect')}
                         onClick={onRefreshPipe}
                     >
                         {refreshing ? (
@@ -414,7 +459,7 @@ function ProcessDetail({
                         ) : (
                             <RefreshCw className="size-3.5" />
                         )}
-                        刷新管道
+                        {t('刷新管道', 'Refresh connection')}
                     </Button>
                 )}
                 <Button
@@ -422,6 +467,7 @@ function ProcessDetail({
                     variant={canUnload ? 'outline' : 'glass'}
                     disabled={busy && !(canUnload && canCancelAttach?.(proc.pid))}
                     onClick={canUnload ? onUnload : onLoad}
+                    data-tutorial-control={canUnload ? 'process-unload' : 'process-load'}
                     className={cn(
                         canUnload &&
                             'text-destructive hover:bg-destructive/10 hover:text-destructive',
@@ -430,55 +476,76 @@ function ProcessDetail({
                     {(loading || unloading) && <Loader2 className="size-3.5 animate-spin" />}
                     {!loading &&
                         !unloading &&
-                        (canUnload ? <Unplug className="size-4" /> : <PlugZap className="size-4" />)}
+                        (canUnload ? (
+                            <Unplug className="size-4" />
+                        ) : (
+                            <PlugZap className="size-4" />
+                        ))}
                     {canUnload
                         ? unloading
-                            ? '卸载中'
-                            : '卸载'
+                            ? t('卸载中', 'Unloading')
+                            : t('卸载', 'Unload')
                         : loading
-                          ? '加载中'
-                          : '加载'}
+                          ? t('加载中', 'Loading')
+                          : t('加载', 'Load')}
                 </Button>
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">
                 {canUnload
-                    ? '卸载仅作用于此 PID，并会断开当前会话。'
-                    : '向此 PID 加载 Nowluma；账号确认与内核选择仍由接入流程处理。'}
+                    ? t(
+                          '卸载仅作用于此 PID，并会断开当前会话。',
+                          'Unloading affects only this PID and disconnects the current session.',
+                      )
+                    : t(
+                          '向此 PID 加载 Nowluma；账号确认与内核选择仍由接入流程处理。',
+                          'Load Nowluma into this PID. You will confirm the account and select a kernel before connecting.',
+                      )}
             </p>
 
             <dl className="cp-facts">
                 <div className="cp-fact-row">
-                    <dt>进程</dt>
+                    <dt>{t('进程', 'Process')}</dt>
                     <dd className="break-all">{proc.name}</dd>
                 </div>
                 <div className="cp-fact-row">
-                    <dt>账号</dt>
+                    <dt>{t('账号', 'Account')}</dt>
                     <dd>
-                        <span className="font-mono">{identity?.uin || '未识别'}</span>
+                        <span className="font-mono">{identity?.uin || t('未识别', 'Unknown')}</span>
                         {identity && !proc.loggedIn && (
                             <span className="ml-2 text-xs text-muted-foreground">
-                                本地识别，尚未确认登录
+                                {t(
+                                    '本地识别，尚未确认登录',
+                                    'Detected locally; sign-in not confirmed',
+                                )}
                             </span>
                         )}
                     </dd>
                 </div>
                 <div className="cp-fact-row">
-                    <dt>接入状态</dt>
-                    <dd>{proc.injected ? 'Nowluma 已加载' : '尚未加载'}</dd>
+                    <dt>{t('接入状态', 'Load status')}</dt>
+                    <dd>
+                        {proc.injected
+                            ? t('Nowluma 已加载', 'Nowluma loaded')
+                            : t('尚未加载', 'Not loaded')}
+                    </dd>
                 </div>
                 <div className="cp-fact-row">
-                    <dt>会话连接</dt>
-                    <dd>{proc.connected ? '已建立连接' : '尚未连接'}</dd>
+                    <dt>{t('会话连接', 'Session connection')}</dt>
+                    <dd>
+                        {proc.connected
+                            ? t('已建立连接', 'Connected')
+                            : t('尚未连接', 'Not connected')}
+                    </dd>
                 </div>
                 {proc.path && (
                     <div className="cp-fact-row">
-                        <dt>路径</dt>
+                        <dt>{t('路径', 'Path')}</dt>
                         <dd className="break-all font-mono text-xs leading-relaxed">{proc.path}</dd>
                     </div>
                 )}
                 {proc.error && (
                     <div role="alert" className="cp-fact-row text-destructive">
-                        <dt>错误</dt>
+                        <dt>{t('错误', 'Error')}</dt>
                         <dd className="break-all">{proc.error}</dd>
                     </div>
                 )}

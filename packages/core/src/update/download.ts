@@ -9,7 +9,7 @@ import { x as extractTar } from 'tar';
 import { isRuntimeEntry, readManifest } from './files';
 import { assetName, fetchRelease } from './release';
 export { assetName } from './release';
-import { readUpdateSource, sourceUrls } from './sources';
+import { GITHUB_ORIGIN, readUpdateSource, releaseDownloadPath, sourceUrls } from './sources';
 import type { UpdateSourceConfig } from '@nowluma/common/update-source';
 
 interface ReleaseAsset {
@@ -39,7 +39,7 @@ async function releaseAsset(
         (item: unknown) =>
             item !== null && typeof item === 'object' && 'name' in item && item.name === name,
     );
-    const url = `https://github.com/WSXYT/Nowluma/releases/download/v${version}/${name}`;
+    const url = `${GITHUB_ORIGIN}${releaseDownloadPath(version, name)}`;
 
     if (
         !asset ||

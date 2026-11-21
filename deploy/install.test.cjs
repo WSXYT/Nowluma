@@ -237,5 +237,8 @@ test('a standalone downloaded installer fetches the source into the chosen direc
     const result = f.run(`2\n${posix(target)}\n\n\n\n\n\n`);
     assert.equal(result.status, 0, result.stderr + result.stdout);
     assert.equal(fs.existsSync(path.join(target, 'deploy', '.env')), true);
-    assert.match(result.calls, /codeload\.github\.com\/WSXYT\/Nowluma/);
+    assert.match(
+      result.calls,
+      /^curl .+ https:\/\/codeload\.github\.com\/NowLuma\/NowLuma\/tar\.gz\/refs\/heads\/main /m,
+    );
   }));

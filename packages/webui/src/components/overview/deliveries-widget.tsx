@@ -10,14 +10,21 @@ import { useApi } from '@/lib/api';
 import { startPolling } from '@/lib/polling';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { NotificationDeliveryRecord } from '@/types';
+import { useT } from '@/i18n';
 
 const POLL_MS = 15_000;
 
 export function DeliveriesWidget() {
+    const t = useT();
     const api = useApi();
     const { formatClock } = useTheme();
     const [records, setRecords] = useState<NotificationDeliveryRecord[] | null>(null);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const [loadFailure, setLoadFailure] = useState<{ detail?: string } | null>(null);
+    const loadError =
+        loadFailure &&
+        (loadFailure.detail
+            ? t(loadFailure.detail, `Failed to load recent deliveries: ${loadFailure.detail}`)
+            : t('加载最近投递失败', 'Failed to load recent deliveries'));
 
     useEffect(() => {
         let active = true;
@@ -26,14 +33,14 @@ export function DeliveriesWidget() {
                 const records = await api.notifications.recent(50);
 
                 if (active) {
-                    setLoadError(null);
+                    setLoadFailure(null);
                     setRecords(records);
                 }
             } catch (error) {
                 console.error('load recent notification deliveries failed', error);
 
                 if (active) {
-                    setLoadError(error instanceof Error ? error.message : '加载最近投递失败');
+                    setLoadFailure(error instanceof Error ? { detail: error.message } : {});
                     setRecords((prev) => prev ?? []);
                 }
             }
@@ -51,7 +58,7 @@ export function DeliveriesWidget() {
                 <CardTitle>
                     <h4 className="flex items-center gap-2">
                         <Bell className="size-4" />
-                        通知投递
+                        {t('通知投递', 'Notification deliveries')}
                     </h4>
                 </CardTitle>
             </CardHeader>
@@ -61,7 +68,7 @@ export function DeliveriesWidget() {
                     reserve={120}
                     lines={5}
                     lineHeight={24}
-                    label="通知投递"
+                    label={t('通知投递', 'Notification deliveries')}
                     className={records !== null ? 'skeleton-swap-fluid min-h-[120px]' : ''}
                 >
                     {records !== null ? (
@@ -75,7 +82,7 @@ export function DeliveriesWidget() {
                         ) : records.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-10 text-muted-foreground">
                                 <Bell className="size-8 opacity-40" strokeWidth={1.5} />
-                                <p className="text-sm">暂无投递记录</p>
+                                <p className="text-sm">{t('暂无投递记录', 'No deliveries yet')}</p>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-1 text-meta">
@@ -84,7 +91,10 @@ export function DeliveriesWidget() {
                                         role="alert"
                                         className="mb-1 rounded-lg border border-destructive/30 bg-destructive/10 px-2 py-1.5 font-sans text-xs text-destructive"
                                     >
-                                        {loadError}；当前显示上次成功读取的投递记录。
+                                        {t(
+                                            `${loadError}；当前显示上次成功读取的投递记录。`,
+                                            `${loadError} Showing the last successfully loaded deliveries.`,
+                                        )}
                                     </p>
                                 )}
                                 {records.map((r, i) => (
@@ -105,7 +115,9 @@ export function DeliveriesWidget() {
                                                     : 'text-warning-foreground',
                                             )}
                                         >
-                                            {r.event === 'online' ? '上线' : '下线'}
+                                            {r.event === 'online'
+                                                ? t('上线', 'Online')
+                                                : t('下线', 'Offline')}
                                         </span>
                                         <span className="shrink-0 font-mono">{r.uin}</span>
                                         <span

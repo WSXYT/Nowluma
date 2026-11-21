@@ -4,6 +4,7 @@
 // becomes a group picker, a member_id a member picker linked to the sibling
 // group_id, an image a FileSource, a bool a switch, an enum a select.
 import { useState } from 'react';
+import { useT } from '@/i18n';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dropdown } from '@/components/interior/dropdown';
@@ -33,17 +34,18 @@ function GroupPicker({
     value: string;
     onChange: (v: string) => void;
 }) {
+    const t = useT();
     const { items, loading, error, refresh } = useGroups(uin);
     return (
         <Picker
-            ariaLabel="选择群"
+            ariaLabel={t('选择群', 'Select group')}
             value={value}
             onChange={onChange}
             options={items}
             loading={loading}
             error={error}
             onRefresh={refresh}
-            placeholder="选择群…"
+            placeholder={t('选择群…', 'Select group…')}
             validateRaw={looksLikeId}
         />
     );
@@ -58,17 +60,18 @@ function FriendPicker({
     value: string;
     onChange: (v: string) => void;
 }) {
+    const t = useT();
     const { items, loading, error, refresh } = useFriends(uin);
     return (
         <Picker
-            ariaLabel="选择好友"
+            ariaLabel={t('选择好友', 'Select friend')}
             value={value}
             onChange={onChange}
             options={items}
             loading={loading}
             error={error}
             onRefresh={refresh}
-            placeholder="选择好友…"
+            placeholder={t('选择好友…', 'Select friend…')}
             validateRaw={looksLikeId}
         />
     );
@@ -85,17 +88,22 @@ function MemberPicker({
     value: string;
     onChange: (v: string) => void;
 }) {
+    const t = useT();
     const { items, loading, error, refresh } = useGroupMembers(uin, groupId);
     return (
         <Picker
-            ariaLabel="选择群成员"
+            ariaLabel={t('选择群成员', 'Select group member')}
             value={value}
             onChange={onChange}
             options={items}
             loading={loading}
             error={error}
             onRefresh={refresh}
-            placeholder={groupId ? '选择群成员…' : '请先选择群号'}
+            placeholder={
+                groupId
+                    ? t('选择群成员…', 'Select group member…')
+                    : t('请先选择群号', 'Select a group first')
+            }
             validateRaw={looksLikeId}
         />
     );
@@ -120,6 +128,7 @@ export function ParamField({
     /** Selected Action controls which message shapes the visual builder offers. */
     actionName: string;
 }) {
+    const t = useT();
     const role = param.role;
 
     // ── role-driven widgets ──
@@ -160,6 +169,7 @@ export function ParamField({
             <div className="flex items-center gap-2">
                 <Input
                     type="datetime-local"
+                    aria-label={t('本地日期和时间', 'Local date and time')}
                     value={local}
                     onChange={(e) => {
                         const v = e.target.value;
@@ -169,9 +179,9 @@ export function ParamField({
                 <Input
                     value={value}
                     onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
-                    placeholder="unix 秒"
+                    placeholder={t('unix 秒', 'Unix seconds')}
                     className="w-28 font-mono"
-                    aria-label="时间戳"
+                    aria-label={t('时间戳', 'Timestamp')}
                 />
             </div>
         );
@@ -184,9 +194,18 @@ export function ParamField({
                 value={value}
                 onChange={onChange}
                 label={param.name}
-                placeholder={param.required ? '（请选择）' : '（默认）'}
+                placeholder={
+                    param.required
+                        ? t('（请选择）', '(Select an option)')
+                        : t('（默认）', '(Default)')
+                }
                 items={[
-                    { value: '', label: param.required ? '（请选择）' : '（默认）' },
+                    {
+                        value: '',
+                        label: param.required
+                            ? t('（请选择）', '(Select an option)')
+                            : t('（默认）', '(Default)'),
+                    },
                     ...param.values.map((nextValue) => ({
                         value: String(nextValue),
                         label: String(nextValue),
@@ -212,6 +231,7 @@ export function ParamField({
     if (param.type === 'message') {
         return (
             <MessageParamField
+                name={param.name}
                 value={value}
                 onChange={onChange}
                 uin={uin}
@@ -228,14 +248,20 @@ export function ParamField({
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     aria-label={param.name}
-                    placeholder={param.type === 'object' ? '{\n  \n}' : '"你好"'}
+                    placeholder={param.type === 'object' ? '{\n  \n}' : t('"你好"', '"hello"')}
                     className="min-h-24 font-mono text-xs"
                     spellCheck={false}
                 />
                 <p className="text-xs text-muted-foreground">
                     {param.type === 'object'
-                        ? '粘贴完整 JSON 对象，保留原始字段。'
-                        : '文本填写 JSON 字符串（如 "你好"），富文本填写对象数组。'}
+                        ? t(
+                              '粘贴完整 JSON 对象，保留原始字段。',
+                              'Paste a complete JSON object with the original fields.',
+                          )
+                        : t(
+                              '文本填写 JSON 字符串（如 "你好"），富文本填写对象数组。',
+                              'Enter text as a JSON string (such as "hello") or rich content as an array of objects.',
+                          )}
                 </p>
             </div>
         );
@@ -245,11 +271,17 @@ export function ParamField({
         return (
             <Input
                 type="number"
+                aria-label={param.name}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={
                     param.desc ||
-                    (param.default !== undefined ? `默认 ${JSON.stringify(param.default)}` : '')
+                    (param.default !== undefined
+                        ? t(
+                              `默认 ${JSON.stringify(param.default)}`,
+                              `Default: ${JSON.stringify(param.default)}`,
+                          )
+                        : '')
                 }
             />
         );
@@ -257,11 +289,17 @@ export function ParamField({
 
     return (
         <Input
+            aria-label={param.name}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={
                 param.desc ||
-                (param.default !== undefined ? `默认 ${JSON.stringify(param.default)}` : '')
+                (param.default !== undefined
+                    ? t(
+                          `默认 ${JSON.stringify(param.default)}`,
+                          `Default: ${JSON.stringify(param.default)}`,
+                      )
+                    : '')
             }
         />
     );
@@ -273,21 +311,24 @@ export function messageBuilderModeForAction(actionName: string): MessageBuilderM
 
 // Message param: the visual builder (keeps its own Seg[] model and emits the
 // serialized OneBot array as the string param value) with a raw-text escape
-// hatch. The builder is one-way (builder → value); switching to 原文 edits the
+// hatch. The builder is one-way (builder → value); switching to Raw edits the
 // string directly — the tester's global JSON mode covers full raw editing.
 function MessageParamField({
+    name,
     value,
     onChange,
     uin,
     groupContext,
     mode,
 }: {
+    name: string;
     value: string;
     onChange: (v: string) => void;
     uin: string;
     groupContext: string;
     mode: MessageBuilderMode;
 }) {
+    const t = useT();
     const [inputMode, setInputMode] = useState<'build' | 'raw'>('build');
     const [segs, setSegs] = useState<Seg[]>([]);
 
@@ -300,12 +341,12 @@ function MessageParamField({
         <div className="flex flex-col gap-2">
             <div className="flex justify-end">
                 <Segmented
-                    label="消息编辑方式"
+                    label={t('消息编辑方式', 'Message editing mode')}
                     value={inputMode}
                     onChange={setInputMode}
                     options={[
-                        { value: 'build', label: '构建器' },
-                        { value: 'raw', label: '原文' },
+                        { value: 'build', label: t('构建器', 'Builder') },
+                        { value: 'raw', label: t('原文', 'Raw') },
                     ]}
                 />
             </div>
@@ -321,7 +362,11 @@ function MessageParamField({
                 <textarea
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    placeholder='文本，或 OneBot 段数组 JSON：[{"type":"text","data":{"text":"hi"}}]'
+                    aria-label={name}
+                    placeholder={t(
+                        '文本，或 OneBot 段数组 JSON：[{"type":"text","data":{"text":"hi"}}]',
+                        'Text or a JSON array of OneBot segments: [{"type":"text","data":{"text":"hi"}}]',
+                    )}
                     className="min-h-20 w-full rounded-md border border-border bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40"
                 />
             )}

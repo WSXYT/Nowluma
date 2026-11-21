@@ -6,7 +6,7 @@
 
 连接 QQ 客户端，提供 OneBot v11 接口，在一个浏览器控制台里管理账号、连接、日志和桌面。
 
-[下载发行包](https://github.com/WSXYT/Nowluma/releases) · [中文文档](docs/content/zh/index.md) · [English docs](docs/content/en/index.md) · [部署指南](deploy/README.md) · [参与开发](CONTRIBUTING.md)
+[下载发行包](https://github.com/NowLuma/NowLuma/releases) · [中文文档](https://nowluma.github.io/NowLuma/zh/) · [English docs](https://nowluma.github.io/NowLuma/en/) · [部署指南](deploy/README.md) · [参与开发](CONTRIBUTING.md)
 
 ## 开始使用
 

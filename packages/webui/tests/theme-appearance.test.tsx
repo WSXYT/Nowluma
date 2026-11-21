@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_APPEARANCE } from '@nowluma/common/webui-appearance';
 import type { UiAppearance } from '@nowluma/common/webui-appearance';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
+import type * as I18n from '../src/i18n';
 import { hookHost } from './helpers/hook-host';
 
 const mocks = vi.hoisted(() => ({
@@ -12,7 +13,17 @@ const mocks = vi.hoisted(() => ({
     applyBackgroundLayer: vi.fn(),
     reveal: vi.fn((apply: () => void) => apply()),
 }));
+const prefs = vi.hoisted(() => ({ language: 'zh' as I18n.Language }));
 vi.mock('react', async (load) => ({ ...(await load<typeof React>()) }));
+vi.mock('@/i18n', async (original) => ({
+    ...(await original<typeof I18n>()),
+    useLocale: () => ({
+        language: prefs.language,
+        locale: prefs.language === 'en' ? 'en' : 'zh-CN',
+        locked: false,
+        setLanguage: vi.fn(),
+    }),
+}));
 vi.mock('@/contexts/ActionFeedbackContext', async (load) => ({
     ...(await load<Record<string, unknown>>()),
     useActionFeedback: () => mocks,
@@ -30,7 +41,6 @@ vi.mock('@/appearance/reveal', () => ({
     runThemeReveal: mocks.reveal,
     trackRevealOrigin: () => vi.fn(),
 }));
-
 
 let host = hookHost();
 let server: UiAppearance;
@@ -51,6 +61,7 @@ async function ready() {
 
 beforeEach(() => {
     vi.useFakeTimers();
+    prefs.language = 'zh';
     vi.clearAllMocks();
     host = hookHost();
     server = {
@@ -65,16 +76,23 @@ beforeEach(() => {
         ['nowluma_token', 'fixture-session'],
         ['nowluma_ui_appearance', JSON.stringify(DEFAULT_APPEARANCE)],
     ]);
-    setItem = vi.fn((key: string, value: string) => { values.set(key, value); });
+    setItem = vi.fn((key: string, value: string) => {
+        values.set(key, value);
+    });
     vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem });
     const media = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     vi.stubGlobal('window', { matchMedia: () => media, setTimeout: globalThis.setTimeout });
-    vi.spyOn(React, 'useSyncExternalStore').mockImplementation((_subscribe, getSnapshot) => getSnapshot());
+    vi.spyOn(React, 'useSyncExternalStore').mockImplementation((_subscribe, getSnapshot) =>
+        getSnapshot(),
+    );
     requests.mockImplementation(async (input, options) => {
         if (options?.method === 'POST') {
-            const { appearance } = JSON.parse(options.body as string) as { appearance: UiAppearance };
+            const { appearance } = JSON.parse(options.body as string) as {
+                appearance: UiAppearance;
+            };
             return Response.json({ success: true, config: { appearance } });
         }
+
         return input === '/api/ui/public'
             ? Response.json({ appearance: { ...server, customCss: '' } })
             : Response.json({ config: { appearance: server } });
@@ -89,6 +107,33 @@ afterEach(() => {
 });
 
 describe('ThemeProvider manual preferences and replay ownership', () => {
+    it('uses the current locale for the clock without restarting the pending initial read', async () => {
+        server.timeFormat = '12h';
+        const read = Promise.withResolvers<Response>();
+        requests.mockImplementationOnce(() => read.promise);
+        const initial = current();
+        prefs.language = 'en';
+        const translated = current();
+        expect(translated.reloadAppearance).toBe(initial.reloadAppearance);
+        expect(translated.saveAppearance).toBe(initial.saveAppearance);
+        expect(requests).toHaveBeenCalledTimes(1);
+
+        read.resolve(Response.json({ config: { appearance: server } }));
+        await vi.advanceTimersByTimeAsync(0);
+        const time = new Date(2026, 0, 1, 15, 5, 42);
+        const options = {
+            hour12: true,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        } as const;
+        expect(current().formatClock(time)).toBe(time.toLocaleTimeString('en', options));
+        prefs.language = 'zh';
+        expect(current().formatClock(time)).toBe(time.toLocaleTimeString('zh-CN', options));
+        expect(requests).toHaveBeenCalledTimes(1);
+        expect(current().formatClock('invalid fixture time')).toBe('invalid fixture time');
+    });
+
     it('keeps in-flight manual effects over a slow first read while retaining every unrelated server field', async () => {
         const read = Promise.withResolvers<Response>();
         requests.mockImplementationOnce(() => read.promise);
@@ -125,7 +170,11 @@ describe('ThemeProvider manual preferences and replay ownership', () => {
         value.setAppearance({ disableMotion: true, performanceMode: 'low' });
         let tree = render();
         value = tree.props.value;
-        expect(value.appearance).toMatchObject({ mode: 'dark', disableMotion: true, performanceMode: 'low' });
+        expect(value.appearance).toMatchObject({
+            mode: 'dark',
+            disableMotion: true,
+            performanceMode: 'low',
+        });
         expect(value.savedAppearance).toEqual(saved);
         expect(value.performance).toEqual({ mode: 'low', low: true });
         expect(tree.props.children.props.reducedMotion).toBe('always');
@@ -171,9 +220,9 @@ describe('ThemeProvider manual preferences and replay ownership', () => {
         const saved = structuredClone(value.savedAppearance);
         vi.mocked(setItem).mockClear();
         requests.mockImplementationOnce(async () => new Response('', { status: 503 }));
-        await expect(value.saveAppearance({ disableMotion: true, performanceMode: 'low' })).rejects.toThrow(
-            '无法读取已保存的外观',
-        );
+        await expect(
+            value.saveAppearance({ disableMotion: true, performanceMode: 'low' }),
+        ).rejects.toThrow('无法读取已保存的外观');
         expect(posts()).toHaveLength(0);
         expect(current().savedAppearance).toEqual(saved);
         expect(setItem).not.toHaveBeenCalled();
@@ -185,13 +234,18 @@ describe('ThemeProvider manual preferences and replay ownership', () => {
         let first = true;
         requests.mockImplementation(async (_input, options) => {
             if (options?.method === 'POST') {
-                const { appearance } = JSON.parse(options.body as string) as { appearance: UiAppearance };
+                const { appearance } = JSON.parse(options.body as string) as {
+                    appearance: UiAppearance;
+                };
+
                 if (first) {
                     first = false;
                     return firstWrite.promise;
                 }
+
                 return Response.json({ success: true, config: { appearance } });
             }
+
             return Response.json({ config: { appearance: server } });
         });
         const older = value.saveAppearance({ performanceMode: 'high' });
@@ -203,8 +257,15 @@ describe('ThemeProvider manual preferences and replay ownership', () => {
         await older;
         await newer;
         expect(posts()).toHaveLength(2);
-        expect(posts().map(([, options]) => JSON.parse(options!.body as string).appearance.performanceMode)).toEqual(['high', 'low']);
-        expect(current().savedAppearance).toMatchObject({ disableMotion: true, performanceMode: 'low' });
+        expect(
+            posts().map(
+                ([, options]) => JSON.parse(options!.body as string).appearance.performanceMode,
+            ),
+        ).toEqual(['high', 'low']);
+        expect(current().savedAppearance).toMatchObject({
+            disableMotion: true,
+            performanceMode: 'low',
+        });
     });
 
     it('rejects a missing session before any explicit save read, cache mutation, or POST', async () => {
@@ -220,7 +281,12 @@ describe('ThemeProvider manual preferences and replay ownership', () => {
     it('loads authenticated CSS after login without silently saving server defaults over manual choices', async () => {
         server = { ...server, disableMotion: true, performanceMode: 'low' };
         const value = await ready();
-        server = { ...server, disableMotion: false, performanceMode: 'high', customCss: '.fixture { color: #123456; }' };
+        server = {
+            ...server,
+            disableMotion: false,
+            performanceMode: 'high',
+            customCss: '.fixture { color: #123456; }',
+        };
         await value.reloadAppearance();
         expect(current().savedAppearance).toMatchObject({
             disableMotion: true,

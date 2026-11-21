@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 import { Group, SettingRow } from '@/components/settings/settings-controls';
 import { Modal } from '@/components/interior/modal';
 import { SkeletonSwap } from '@/components/interior/skeleton-swap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useT } from '@/i18n';
 import { useApi } from '@/lib/api';
 import type { TotpEnrollment, TotpStatus } from '@/lib/api/types';
 import { parseSecondFactor } from '@/lib/totp-second-factor';
@@ -13,64 +14,102 @@ import { TotpRecoveryCodes } from '@/components/settings/totp-recovery-codes';
 import { copyText } from '@/lib/utils';
 
 export function TotpPanel() {
+    const t = useT();
     const api = useApi();
     const [status, setStatus] = useState<TotpStatus | 'loading' | { error: string }>('loading');
     const [setupOpen, setSetupOpen] = useState(false);
     const [disableOpen, setDisableOpen] = useState(false);
     const [regenOpen, setRegenOpen] = useState(false);
 
-    const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
-        try {
-            const next = await api.totp.status();
-            if (isCurrent()) {
-                setStatus(next);
+    const refresh = useCallback(
+        async (isCurrent: () => boolean = () => true) => {
+            try {
+                const next = await api.totp.status();
+
+                if (isCurrent()) {
+                    setStatus(next);
+                }
+            } catch (error) {
+                if (isCurrent()) {
+                    setStatus({
+                        error: error instanceof Error ? error.message : '',
+                    });
+                }
             }
-        } catch (error) {
-            if (isCurrent()) {
-                setStatus({ error: error instanceof Error ? error.message : '读取双重验证状态失败' });
-            }
-        }
-    }, [api]);
+        },
+        [api],
+    );
 
     useEffect(() => {
         let disposed = false;
         void refresh(() => !disposed);
+
         return () => {
             disposed = true;
         };
     }, [refresh]);
 
     return (
-        <Group
-            title="双重验证"
-            icon={ShieldCheck}
-        >
+        <Group title={t('双重验证', 'Two-factor authentication')} icon={ShieldCheck}>
             {status === 'loading' ? (
                 <SettingRow label="2FA">
-                    <SkeletonSwap ready={false} reserve={24} lines={1} label="双重验证状态" children={null} />
+                    <SkeletonSwap
+                        ready={false}
+                        reserve={24}
+                        lines={1}
+                        label={t('双重验证状态', 'Two-factor status')}
+                        children={null}
+                    />
                 </SettingRow>
             ) : 'error' in status ? (
-                <div role="alert" className="flex min-w-0 flex-col gap-1.5 py-3 text-xs text-destructive">
-                    <p className="font-medium">无法读取双重验证状态</p>
-                    <p className="break-words">{status.error}</p>
-                    <p className="text-muted-foreground">当前状态未知；请重新载入页面后确认，不能据此判断是否已开启。</p>
+                <div
+                    role="alert"
+                    className="flex min-w-0 flex-col gap-1.5 py-3 text-xs text-destructive"
+                >
+                    <p className="font-medium">
+                        {t('无法读取双重验证状态', 'Unable to read two-factor status')}
+                    </p>
+                    <p className="break-words">
+                        {status.error ||
+                            t('读取双重验证状态失败', 'Failed to read two-factor status')}
+                    </p>
+                    <p className="text-muted-foreground">
+                        {t(
+                            '当前状态未知；请重新载入页面后确认，不能据此判断是否已开启。',
+                            'Status is unknown; reload the page to confirm. Do not use this to decide whether 2FA is enabled.',
+                        )}
+                    </p>
                 </div>
             ) : status.enabled ? (
                 <>
                     <SettingRow
-                        label="状态"
-                        hint={`已绑定 ${status.label} · 剩余 ${status.remainingRecoveryCodes} 个恢复码`}
+                        label={t('状态', 'Status')}
+                        hint={t(
+                            `已绑定 ${status.label} · 剩余 ${status.remainingRecoveryCodes} 个恢复码`,
+                            `Bound to ${status.label} · ${status.remainingRecoveryCodes} recovery code${
+                                status.remainingRecoveryCodes === 1 ? '' : 's'
+                            } remaining`,
+                        )}
                     >
-                        <span className="text-sm text-success">已开启</span>
+                        <span className="text-sm text-success">{t('已开启', 'Enabled')}</span>
                     </SettingRow>
-                    <SettingRow label="恢复码" hint="重新生成后旧码立即作废。">
+                    <SettingRow
+                        label={t('恢复码', 'Recovery codes')}
+                        hint={t(
+                            '重新生成后旧码立即作废。',
+                            'Existing codes become invalid immediately after regeneration.',
+                        )}
+                    >
                         <Button variant="glass" size="sm" onClick={() => setRegenOpen(true)}>
-                            重新生成
+                            {t('重新生成', 'Regenerate')}
                         </Button>
                     </SettingRow>
                     <SettingRow
-                        label="关闭 2FA"
-                        hint="需要当前密码，以及验证码或恢复码。其他设备的会话将失效。"
+                        label={t('关闭 2FA', 'Disable 2FA')}
+                        hint={t(
+                            '需要当前密码，以及验证码或恢复码。其他设备的会话将失效。',
+                            'Requires the current password plus a code or recovery code. Other device sessions will be revoked.',
+                        )}
                     >
                         <Button
                             variant="ghost"
@@ -78,17 +117,20 @@ export function TotpPanel() {
                             className="text-destructive hover:text-destructive"
                             onClick={() => setDisableOpen(true)}
                         >
-                            关闭
+                            {t('关闭', 'Disable')}
                         </Button>
                     </SettingRow>
                 </>
             ) : (
                 <SettingRow
                     label="Authenticator"
-                    hint="未开启；绑定验证器后用 6 位验证码确认。"
+                    hint={t(
+                        '未开启；绑定验证器后用 6 位验证码确认。',
+                        'Not enabled; after binding an authenticator, confirm with a 6-digit code.',
+                    )}
                 >
                     <Button variant="glass" size="sm" onClick={() => setSetupOpen(true)}>
-                        <KeyRound className="size-4" /> 开启 2FA
+                        <KeyRound className="size-4" /> {t('开启 2FA', 'Enable 2FA')}
                     </Button>
                 </SettingRow>
             )}
@@ -103,9 +145,13 @@ export function TotpPanel() {
             <TotpChallengeDialog
                 open={disableOpen}
                 onOpenChange={setDisableOpen}
-                title="关闭双重验证"
-                description="关闭后，只需访问密码即可登录。其他已登录会话会立即失效。"
-                confirmText="关闭 2FA"
+                title={t('关闭双重验证', 'Disable two-factor authentication')}
+                description={t(
+                    '关闭后，只需访问密码即可登录。其他已登录会话会立即失效。',
+                    'After disabling, only the access password is required to sign in. Other signed-in sessions are revoked immediately.',
+                )}
+                confirmText={t('关闭 2FA', 'Disable 2FA')}
+                closeLabel={t('关闭关闭双重验证', 'Close two-factor authentication')}
                 destructive
                 onSubmit={async (password, second) => api.totp.disable(password, second)}
                 onDone={refresh}
@@ -124,6 +170,13 @@ function TotpSetupDialog({
     onOpenChange: (open: boolean) => void;
     onEnabled: () => void | Promise<void>;
 }) {
+    const t = useT();
+    const tRef = useRef(t);
+
+    useEffect(() => {
+        tRef.current = t;
+    }, [t]);
+
     const api = useApi();
     const formId = useId();
     const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null);
@@ -145,6 +198,7 @@ function TotpSetupDialog({
                 ...(nextIssuer ? { issuer: nextIssuer } : {}),
                 ...(nextAccount ? { accountName: nextAccount } : {}),
             });
+
             if (!isCurrent()) {
                 return false;
             }
@@ -179,7 +233,14 @@ function TotpSetupDialog({
         void loadEnrollment(undefined, undefined, () => !disposed)
             .catch((caught) => {
                 if (!disposed) {
-                    setError(caught instanceof Error ? caught.message : '无法读取 2FA 绑定信息');
+                    setError(
+                        caught instanceof Error
+                            ? caught.message
+                            : tRef.current(
+                                  '无法读取 2FA 绑定信息',
+                                  'Failed to load 2FA enrollment info',
+                              ),
+                    );
                 }
             })
             .finally(() => {
@@ -187,6 +248,7 @@ function TotpSetupDialog({
                     setBusy(false);
                 }
             });
+
         return () => {
             disposed = true;
         };
@@ -198,10 +260,15 @@ function TotpSetupDialog({
         }
 
         setBusy(true);
+
         try {
             await loadEnrollment(issuer, accountName);
         } catch (caught) {
-            setError(caught instanceof Error ? caught.message : '更新验证器显示名称失败');
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : t('更新验证器显示名称失败', 'Failed to update authenticator display names'),
+            );
         } finally {
             setBusy(false);
         }
@@ -214,11 +281,14 @@ function TotpSetupDialog({
 
         setBusy(true);
         setError('');
+
         try {
             if (!(await loadEnrollment(issuer, accountName))) {
                 return;
             }
+
             const result = await api.totp.confirm(password, code);
+
             if (!result.success) {
                 setError(result.message);
                 return;
@@ -229,7 +299,11 @@ function TotpSetupDialog({
             setRecoveryCodes(result.recoveryCodes);
             await onEnabled();
         } catch (caught) {
-            setError(caught instanceof Error ? caught.message : '开启双重验证失败');
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : t('开启双重验证失败', 'Failed to enable two-factor authentication'),
+            );
         } finally {
             setBusy(false);
         }
@@ -243,28 +317,40 @@ function TotpSetupDialog({
                     onOpenChange(false);
                 }
             }}
-            title={recoveryCodes ? '保存恢复码' : '开启双重验证'}
+            title={
+                recoveryCodes
+                    ? t('保存恢复码', 'Save recovery codes')
+                    : t('开启双重验证', 'Enable two-factor authentication')
+            }
             description={
                 recoveryCodes
-                    ? '这些恢复码只显示一次。丢失 Authenticator 时用它们登录。'
-                    : '用 Authenticator 扫描二维码，或手动输入密钥，然后输入当前访问密码和 6 位验证码。'
+                    ? t(
+                          '这些恢复码只显示一次。丢失 Authenticator 时用它们登录。',
+                          'These recovery codes are shown once. Use them if you lose your authenticator.',
+                      )
+                    : t(
+                          '用 Authenticator 扫描二维码，或手动输入密钥，然后输入当前访问密码和 6 位验证码。',
+                          'Scan the QR code with your authenticator or enter the secret manually, then enter the current access password and a 6-digit code.',
+                      )
             }
-            closeLabel="关闭 2FA 绑定"
+            closeLabel={t('关闭 2FA 绑定', 'Close 2FA setup')}
             className="cp-dialog"
             maxWidth={440}
             showClose={!busy && !recoveryCodes}
             closeOnEscape={!busy && !recoveryCodes}
             closeOnBackdrop={!busy && !recoveryCodes}
-            footer={!recoveryCodes && (
-                <Button
-                    type="submit"
-                    form={formId}
-                    variant="glass"
-                    disabled={busy || !enrollment || !password || !/^\d{6}$/.test(code)}
-                >
-                    {busy ? '处理中…' : '确认开启'}
-                </Button>
-            )}
+            footer={
+                !recoveryCodes && (
+                    <Button
+                        type="submit"
+                        form={formId}
+                        variant="glass"
+                        disabled={busy || !enrollment || !password || !/^\d{6}$/.test(code)}
+                    >
+                        {busy ? t('处理中…', 'Working…') : t('确认开启', 'Enable')}
+                    </Button>
+                )
+            }
         >
             {recoveryCodes ? (
                 <TotpRecoveryCodes codes={recoveryCodes} onConfirm={() => onOpenChange(false)} />
@@ -278,10 +364,17 @@ function TotpSetupDialog({
                         void confirm();
                     }}
                 >
-                    {busy && !enrollment && <p role="status" className="text-xs text-muted-foreground">正在读取绑定信息…</p>}
+                    {busy && !enrollment && (
+                        <p role="status" className="text-xs text-muted-foreground">
+                            {t('正在读取绑定信息…', 'Loading enrollment info…')}
+                        </p>
+                    )}
                     {enrollment && (
                         <div className="flex flex-col items-center gap-3">
-                            <TotpQr value={enrollment.otpauthUrl} label="2FA 绑定二维码" />
+                            <TotpQr
+                                value={enrollment.otpauthUrl}
+                                label={t('2FA 绑定二维码', '2FA enrollment QR code')}
+                            />
                             <p className="break-all text-center font-mono text-xs text-muted-foreground">
                                 {enrollment.secret}
                             </p>
@@ -293,74 +386,85 @@ function TotpSetupDialog({
                                     size="sm"
                                     onClick={async () => {
                                         if (!(await copyText(enrollment.secret))) {
-                                            setError('复制密钥失败，请选择上方密钥手动复制。');
+                                            setError(
+                                                t(
+                                                    '复制密钥失败，请选择上方密钥手动复制。',
+                                                    'Failed to copy the secret; select the secret above to copy it manually.',
+                                                ),
+                                            );
                                         }
                                     }}
                                 >
-                                    复制密钥
+                                    {t('复制密钥', 'Copy secret')}
                                 </Button>
                                 <Button asChild variant="glass" size="sm" disabled={busy}>
-                                    <a href={enrollment.otpauthUrl}>在验证器中打开</a>
+                                    <a href={enrollment.otpauthUrl}>
+                                        {t('在验证器中打开', 'Open in authenticator')}
+                                    </a>
                                 </Button>
                             </div>
                         </div>
                     )}
                     <details className="text-xs">
                         <summary className="min-h-11 cursor-pointer py-3 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            验证器显示名称
+                            {t('验证器显示名称', 'Authenticator display names')}
                         </summary>
                         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                        <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                            服务名
-                            <Input
-                                value={issuer}
-                                disabled={busy || !enrollment}
-                                onChange={(e) => setIssuer(e.target.value)}
-                                onBlur={() => {
-                                    void refreshLabels();
-                                }}
-                            />
-                        </label>
-                        <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                            账号名
-                            <Input
-                                value={accountName}
-                                disabled={busy || !enrollment}
-                                onChange={(e) => setAccountName(e.target.value)}
-                                onBlur={() => {
-                                    void refreshLabels();
-                                }}
-                            />
-                        </label>
+                            <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                                {t('服务名', 'Issuer')}
+                                <Input
+                                    value={issuer}
+                                    disabled={busy || !enrollment}
+                                    onChange={(e) => setIssuer(e.target.value)}
+                                    onBlur={() => {
+                                        void refreshLabels();
+                                    }}
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                                {t('账号名', 'Account name')}
+                                <Input
+                                    value={accountName}
+                                    disabled={busy || !enrollment}
+                                    onChange={(e) => setAccountName(e.target.value)}
+                                    onBlur={() => {
+                                        void refreshLabels();
+                                    }}
+                                />
+                            </label>
                         </div>
                     </details>
                     <label className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-xs font-medium">当前访问密码</span>
-                    <Input
-                        type="password"
-                        aria-label="当前访问密码"
-                        placeholder="当前访问密码"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        required
-                        disabled={busy || !enrollment}
-                    />
+                        <span className="text-xs font-medium">
+                            {t('当前访问密码', 'Current access password')}
+                        </span>
+                        <Input
+                            type="password"
+                            aria-label={t('当前访问密码', 'Current access password')}
+                            placeholder={t('当前访问密码', 'Current access password')}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            required
+                            disabled={busy || !enrollment}
+                        />
                     </label>
                     <label className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-xs font-medium">6 位验证码</span>
-                    <Input
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                        aria-label="6 位验证码"
-                        placeholder="6 位验证码"
-                        value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        required
-                        disabled={busy || !enrollment}
-                    />
+                        <span className="text-xs font-medium">
+                            {t('6 位验证码', '6-digit code')}
+                        </span>
+                        <Input
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            pattern="[0-9]{6}"
+                            aria-label={t('6 位验证码', '6-digit code')}
+                            placeholder={t('6 位验证码', '6-digit code')}
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                            required
+                            disabled={busy || !enrollment}
+                        />
                     </label>
                     {error && (
                         <p role="alert" className="text-xs text-destructive">
@@ -379,6 +483,7 @@ function TotpChallengeDialog({
     title,
     description,
     confirmText,
+    closeLabel,
     destructive,
     onSubmit,
     onDone,
@@ -388,6 +493,7 @@ function TotpChallengeDialog({
     title: string;
     description: string;
     confirmText: string;
+    closeLabel: string;
     destructive?: boolean;
     onSubmit: (
         password: string,
@@ -395,6 +501,7 @@ function TotpChallengeDialog({
     ) => Promise<{ success: boolean; message?: string }>;
     onDone: () => void | Promise<void>;
 }) {
+    const t = useT();
     const formId = useId();
     const [password, setPassword] = useState('');
     const [second, setSecond] = useState('');
@@ -416,17 +523,23 @@ function TotpChallengeDialog({
 
         setBusy(true);
         setError('');
+
         try {
             const result = await onSubmit(password, parseSecondFactor(second));
+
             if (!result.success) {
-                setError(result.message ?? '操作失败');
+                setError(result.message ?? t('操作失败', 'Operation failed'));
                 return;
             }
 
             await onDone();
             onOpenChange(false);
         } catch (caught) {
-            setError(caught instanceof Error ? caught.message : '双重验证操作失败');
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : t('双重验证操作失败', 'Two-factor operation failed'),
+            );
         } finally {
             setBusy(false);
         }
@@ -442,7 +555,7 @@ function TotpChallengeDialog({
             }}
             title={title}
             description={description}
-            closeLabel={`关闭${title}`}
+            closeLabel={closeLabel}
             className="cp-dialog"
             maxWidth={400}
             showClose={!busy}
@@ -455,7 +568,7 @@ function TotpChallengeDialog({
                     variant={destructive ? 'destructive' : 'glass'}
                     disabled={busy || !password || !second.trim()}
                 >
-                    {busy ? '处理中…' : confirmText}
+                    {busy ? t('处理中…', 'Working…') : confirmText}
                 </Button>
             }
         >
@@ -469,29 +582,33 @@ function TotpChallengeDialog({
                 }}
             >
                 <label className="flex min-w-0 flex-col gap-1.5">
-                    <span className="text-xs font-medium">当前访问密码</span>
-                <Input
-                    type="password"
-                    aria-label="当前访问密码"
-                    placeholder="当前访问密码"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    required
-                    disabled={busy}
-                />
+                    <span className="text-xs font-medium">
+                        {t('当前访问密码', 'Current access password')}
+                    </span>
+                    <Input
+                        type="password"
+                        aria-label={t('当前访问密码', 'Current access password')}
+                        placeholder={t('当前访问密码', 'Current access password')}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                        required
+                        disabled={busy}
+                    />
                 </label>
                 <label className="flex min-w-0 flex-col gap-1.5">
-                    <span className="text-xs font-medium">6 位验证码或恢复码</span>
-                <Input
-                    aria-label="6 位验证码或恢复码"
-                    placeholder="6 位验证码或恢复码"
-                    value={second}
-                    onChange={(e) => setSecond(e.target.value)}
-                    autoComplete="one-time-code"
-                    required
-                    disabled={busy}
-                />
+                    <span className="text-xs font-medium">
+                        {t('6 位验证码或恢复码', '6-digit code or recovery code')}
+                    </span>
+                    <Input
+                        aria-label={t('6 位验证码或恢复码', '6-digit code or recovery code')}
+                        placeholder={t('6 位验证码或恢复码', '6-digit code or recovery code')}
+                        value={second}
+                        onChange={(e) => setSecond(e.target.value)}
+                        autoComplete="one-time-code"
+                        required
+                        disabled={busy}
+                    />
                 </label>
                 {error && (
                     <p role="alert" className="text-xs text-destructive">
@@ -512,6 +629,7 @@ function TotpRegenDialog({
     onOpenChange: (open: boolean) => void;
     onDone: () => void | Promise<void>;
 }) {
+    const t = useT();
     const api = useApi();
     const formId = useId();
     const [password, setPassword] = useState('');
@@ -536,8 +654,10 @@ function TotpRegenDialog({
 
         setBusy(true);
         setError('');
+
         try {
             const result = await api.totp.regenerateRecoveryCodes(password, totp);
+
             if (!result.success) {
                 setError(result.message);
                 return;
@@ -548,7 +668,11 @@ function TotpRegenDialog({
             setCodes(result.recoveryCodes);
             await onDone();
         } catch (caught) {
-            setError(caught instanceof Error ? caught.message : '重新生成恢复码失败');
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : t('重新生成恢复码失败', 'Failed to regenerate recovery codes'),
+            );
         } finally {
             setBusy(false);
         }
@@ -562,28 +686,42 @@ function TotpRegenDialog({
                     onOpenChange(false);
                 }
             }}
-            title={codes ? '新的恢复码' : '重新生成恢复码'}
+            title={
+                codes
+                    ? t('新的恢复码', 'New recovery codes')
+                    : t('重新生成恢复码', 'Regenerate recovery codes')
+            }
             description={
                 codes
-                    ? '旧恢复码已作废。请保存下面的新码。'
-                    : '需要当前密码和 Authenticator 验证码。旧恢复码会立即作废。'
+                    ? t(
+                          '旧恢复码已作废。请保存下面的新码。',
+                          'Old recovery codes are now invalid. Save the new codes below.',
+                      )
+                    : t(
+                          '需要当前密码和 Authenticator 验证码。旧恢复码会立即作废。',
+                          'Requires the current password and an authenticator code. Old recovery codes become invalid immediately.',
+                      )
             }
-            closeLabel="关闭恢复码"
+            closeLabel={t('关闭恢复码', 'Close recovery codes')}
             className="cp-dialog"
             maxWidth={440}
             showClose={!busy && !codes}
             closeOnEscape={!busy && !codes}
             closeOnBackdrop={!busy && !codes}
-            footer={!codes && (
-                <Button
-                    type="submit"
-                    form={formId}
-                    variant="glass"
-                    disabled={busy || !password || !/^\d{6}$/.test(totp)}
-                >
-                    {busy ? '正在生成…' : '生成新恢复码'}
-                </Button>
-            )}
+            footer={
+                !codes && (
+                    <Button
+                        type="submit"
+                        form={formId}
+                        variant="glass"
+                        disabled={busy || !password || !/^\d{6}$/.test(totp)}
+                    >
+                        {busy
+                            ? t('正在生成…', 'Generating…')
+                            : t('生成新恢复码', 'Generate new recovery codes')}
+                    </Button>
+                )
+            }
         >
             {codes ? (
                 <TotpRecoveryCodes codes={codes} onConfirm={() => onOpenChange(false)} />
@@ -598,32 +736,36 @@ function TotpRegenDialog({
                     }}
                 >
                     <label className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-xs font-medium">当前访问密码</span>
-                    <Input
-                        type="password"
-                        aria-label="当前访问密码"
-                        placeholder="当前访问密码"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        required
-                        disabled={busy}
-                    />
+                        <span className="text-xs font-medium">
+                            {t('当前访问密码', 'Current access password')}
+                        </span>
+                        <Input
+                            type="password"
+                            aria-label={t('当前访问密码', 'Current access password')}
+                            placeholder={t('当前访问密码', 'Current access password')}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            required
+                            disabled={busy}
+                        />
                     </label>
                     <label className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-xs font-medium">6 位验证码</span>
-                    <Input
-                        inputMode="numeric"
-                        aria-label="6 位验证码"
-                        placeholder="6 位验证码"
-                        value={totp}
-                        onChange={(e) => setTotp(e.target.value)}
-                        autoComplete="one-time-code"
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                        required
-                        disabled={busy}
-                    />
+                        <span className="text-xs font-medium">
+                            {t('6 位验证码', '6-digit code')}
+                        </span>
+                        <Input
+                            inputMode="numeric"
+                            aria-label={t('6 位验证码', '6-digit code')}
+                            placeholder={t('6 位验证码', '6-digit code')}
+                            value={totp}
+                            onChange={(e) => setTotp(e.target.value)}
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            pattern="[0-9]{6}"
+                            required
+                            disabled={busy}
+                        />
                     </label>
                     {error && (
                         <p role="alert" className="text-xs text-destructive">

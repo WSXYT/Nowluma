@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useActionFeedback } from '@/contexts/ActionFeedbackContext';
 import { useApi, type ProcessActionResult } from '@/lib/api';
+import { useT, type Translate } from '@/i18n';
 
 export type HookProcessOpKind = 'load' | 'unload' | 'refresh';
 
@@ -29,28 +30,61 @@ export interface UseHookProcessOpsResult {
 }
 
 interface KindMessages {
-    start(pid: number): string;
-    ok(pid: number): string;
-    fail(message: string): string;
+    start(pid: number, t: Translate): string;
+    ok(pid: number, t: Translate): string;
+    errorTitle(t: Translate): string;
 }
 
 const KIND_MESSAGES: Record<HookProcessOpKind, KindMessages> = {
     load: {
-        start: (pid) => `正在向进程 ${pid} 加载 Nowluma…`,
-        ok: (pid) => `已向进程 ${pid} 注入 Nowluma，等待管道连接…`,
-        fail: (m) => `加载失败：${m}`,
+        start: (pid, t) =>
+            t(`正在向进程 ${pid} 加载 Nowluma…`, `Loading Nowluma into process ${pid}…`),
+        ok: (pid, t) =>
+            t(
+                `已向进程 ${pid} 注入 Nowluma，等待管道连接…`,
+                `Nowluma loaded into process ${pid}. Waiting for the pipe to connect…`,
+            ),
+        errorTitle: (t) => t('加载失败', 'Load failed'),
     },
     unload: {
-        start: (pid) => `正在从进程 ${pid} 卸载…`,
-        ok: (pid) => `已从进程 ${pid} 卸载`,
-        fail: (m) => `卸载失败：${m}`,
+        start: (pid, t) => t(`正在从进程 ${pid} 卸载…`, `Unloading from process ${pid}…`),
+        ok: (pid, t) => t(`已从进程 ${pid} 卸载`, `Unloaded from process ${pid}`),
+        errorTitle: (t) => t('卸载失败', 'Unload failed'),
     },
     refresh: {
-        start: (pid) => `正在刷新进程 ${pid} 的管道状态…`,
-        ok: (pid) => `已刷新进程 ${pid} 的管道状态`,
-        fail: (m) => `刷新失败：${m}`,
+        start: (pid, t) =>
+            t(`正在刷新进程 ${pid} 的管道状态…`, `Refreshing pipe status for process ${pid}…`),
+        ok: (pid, t) =>
+            t(`已刷新进程 ${pid} 的管道状态`, `Refreshed pipe status for process ${pid}`),
+        errorTitle: (t) => t('刷新失败', 'Refresh failed'),
     },
 };
+
+type ProcessBanner =
+    | { state: 'start' | 'ok'; pid: number; kind: HookProcessOpKind }
+    | { state: 'failed'; kind: HookProcessOpKind; detail?: string }
+    | { state: 'unloadFailed'; pid: number };
+
+function formatBanner(banner: ProcessBanner | null, t: Translate): string {
+    if (!banner) {
+        return '';
+    }
+
+    switch (banner.state) {
+        case 'start':
+        case 'ok':
+            return KIND_MESSAGES[banner.kind][banner.state](banner.pid, t);
+
+        case 'failed': {
+            const title = KIND_MESSAGES[banner.kind].errorTitle(t);
+            const detail = banner.detail ?? t('未知错误', 'Unknown error');
+            return t(`${title}：${detail}`, `${title}: ${detail}`);
+        }
+
+        case 'unloadFailed':
+            return t(`进程 ${banner.pid} 卸载失败`, `Unload failed for process ${banner.pid}`);
+    }
+}
 
 interface ProcessRun {
     controller: AbortController;
@@ -99,8 +133,13 @@ export function useHookProcessOps(
 ): UseHookProcessOpsResult {
     const api = useApi();
     const { runAction } = useActionFeedback();
+    const t = useT();
+    const tRef = useRef(t);
+    useLayoutEffect(() => {
+        tRef.current = t;
+    }, [t]);
     const [byPid, setByPid] = useState<Map<number, HookProcessOpKind>>(() => new Map());
-    const [banner, setBanner] = useState('');
+    const [banner, setBanner] = useState<ProcessBanner | null>(null);
     const [unloadFailedAlert, setUnloadFailedAlert] = useState<UnloadFailedAlert | null>(null);
 
     // Synchronous inflight guard — protects against rapid double-clicks that
@@ -139,7 +178,7 @@ export function useHookProcessOps(
         }
 
         bannerTimerRef.current = window.setTimeout(() => {
-            setBanner('');
+            setBanner(null);
             bannerTimerRef.current = null;
         }, BANNER_CLEAR_MS);
     }, []);
@@ -214,19 +253,24 @@ export function useHookProcessOps(
             activeRuns.current.set(pid, current);
             setKind(pid, kind);
             const messages = KIND_MESSAGES[kind];
-            const feedback = {
-                title: messages.start(pid),
-                detail: `PID ${pid}`,
-                successTitle: messages.ok(pid),
-                successDetail: `PID ${pid}`,
-                errorTitle: `${kind === 'load' ? '加载' : kind === 'unload' ? '卸载' : '刷新'}失败`,
-                resultError: (outcome: ProcessActionResult) =>
-                    kind === 'unload' &&
-                    outcome.process?.status === 'connecting' &&
-                    outcome.process.error
-                        ? outcome.process.error
-                        : null,
+
+            const getFeedback = () => {
+                const translate = tRef.current;
+                return {
+                    title: messages.start(pid, translate),
+                    detail: `PID ${pid}`,
+                    successTitle: messages.ok(pid, translate),
+                    successDetail: `PID ${pid}`,
+                    errorTitle: messages.errorTitle(translate),
+                    resultError: (outcome: ProcessActionResult) =>
+                        kind === 'unload' &&
+                        outcome.process?.status === 'connecting' &&
+                        outcome.process.error
+                            ? outcome.process.error
+                            : null,
+                };
             };
+
             let actionStarted = false;
 
             try {
@@ -259,18 +303,27 @@ export function useHookProcessOps(
 
                 current.phase = 'native';
                 setKind(pid, kind);
-                setBanner(messages.start(pid));
+                setBanner({ state: 'start', pid, kind });
                 actionStarted = true;
-                const result = await runAction(feedback, async () => {
+                const result = await runAction(getFeedback(), async () => {
                     const outcome = await action(signal);
                     signal.throwIfAborted();
 
                     if (typeof outcome.success !== 'boolean' || outcome.process?.pid !== pid) {
-                        throw new Error('未能确认操作结果，请检查当前 QQ 状态');
+                        throw new Error(
+                            tRef.current(
+                                '未能确认操作结果，请检查当前 QQ 状态',
+                                'Could not confirm the result. Check the current QQ status.',
+                            ),
+                        );
                     }
 
                     if (!outcome.success || outcome.process.status === 'error') {
-                        throw new Error(outcome.process.error || outcome.message || '操作失败');
+                        throw new Error(
+                            outcome.process.error ||
+                                outcome.message ||
+                                tRef.current('操作失败', 'Operation failed'),
+                        );
                     }
 
                     return outcome;
@@ -286,9 +339,9 @@ export function useHookProcessOps(
                     result.process.error
                 ) {
                     setUnloadFailedAlert({ pid, error: result.process.error });
-                    setBanner(`进程 ${pid} 卸载失败`);
+                    setBanner({ state: 'unloadFailed', pid });
                 } else {
-                    setBanner(messages.ok(pid));
+                    setBanner({ state: 'ok', pid, kind });
                 }
 
                 await onAfterOpRef.current?.();
@@ -298,14 +351,17 @@ export function useHookProcessOps(
                 }
 
                 if (!actionStarted) {
-                    await runAction(feedback, async () => {
+                    await runAction(getFeedback(), async () => {
                         throw e;
                     }).catch(() => undefined);
                 }
 
                 if (!signal.aborted && mounted.current && activeRuns.current.get(pid) === current) {
-                    const msg = e instanceof Error ? e.message : '未知错误';
-                    setBanner(messages.fail(msg));
+                    setBanner({
+                        state: 'failed',
+                        kind,
+                        detail: e instanceof Error ? e.message : undefined,
+                    });
                 }
             } finally {
                 if (activeRuns.current.get(pid) === current && !current.unloadRequested) {
@@ -348,9 +404,11 @@ export function useHookProcessOps(
 
     const dismissUnloadFailedAlert = useCallback(() => setUnloadFailedAlert(null), []);
 
+    const bannerText = formatBanner(banner, t);
+
     const ops = useMemo<HookProcessOps>(
-        () => ({ statusOf, canCancelAttach, banner, load, unload, refresh }),
-        [statusOf, canCancelAttach, banner, load, unload, refresh],
+        () => ({ statusOf, canCancelAttach, banner: bannerText, load, unload, refresh }),
+        [statusOf, canCancelAttach, bannerText, load, unload, refresh],
     );
 
     return { ops, unloadFailedAlert, dismissUnloadFailedAlert, cancelPending };

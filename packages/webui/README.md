@@ -188,8 +188,9 @@ pnpm --filter webui test
 pnpm --filter webui build
 ```
 
-The VitePress site embeds this console with chapter-specific lessons above the
-prose. `pnpm docs:dev` starts both servers; `pnpm docs:build:all` builds the complete
+The VitePress site offers chapter-specific lessons above the prose. The simulator
+does not load until activated, and collapsing it preserves the current lesson.
+`pnpm docs:dev` starts both servers; `pnpm docs:build:all` builds the complete
 static site and simulator. Tutorial options are strictly allowlisted document
 query parameters; `src/demo/history.ts` keeps them separate from hash-route search
 parameters. Operational steps require accepted API state or rendered results,
@@ -199,3 +200,9 @@ user-requested jumps within the current chapter and preserves the active iframe.
 The simulator keeps storage and transport effects isolated to page memory. It
 does not import saved credentials or pre-accept account kernel risks; restarting
 a chapter restores its declared example baseline, and reloading discards edits.
+
+The chapter fixes both the guide and console language. In the production console,
+the masthead language button switches English and Simplified Chinese without
+resetting the active session or form. The preference is local to the browser.
+Application-owned copy is translated; logs, account names, diagnostics, and
+canonical notices keep their original content.

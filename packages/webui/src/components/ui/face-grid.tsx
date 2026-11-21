@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useT } from '@/i18n';
 
 // Classic QQ face ids that resolve on the gtimg CDN. Curated to avoid the gaps
 // in the 0..170 range (deprecated / never-existed ids) that would 404.
@@ -21,6 +22,7 @@ const faceUrl = (id: number) => `https://qzonestyle.gtimg.cn/qzone/em/e${id}.png
 export function FaceGrid({ value, onChange }: { value: string; onChange: (v: string) => void }) {
     const [q, setQ] = useState('');
     const [broken, setBroken] = useState<Set<number>>(() => new Set());
+    const t = useT();
 
     const ids = useMemo(() => {
         const qq = q.trim();
@@ -41,7 +43,7 @@ export function FaceGrid({ value, onChange }: { value: string; onChange: (v: str
                 <Input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="按 id 过滤…"
+                    placeholder={t('按 id 过滤…', 'Filter by id…')}
                     className="h-8 flex-1"
                 />
                 <Input
@@ -50,7 +52,7 @@ export function FaceGrid({ value, onChange }: { value: string; onChange: (v: str
                     placeholder="id"
                     inputMode="numeric"
                     className="h-8 w-20 text-center font-mono"
-                    aria-label="表情 id"
+                    aria-label={t('表情 id', 'Face id')}
                 />
             </div>
             <div className="grid max-h-48 grid-cols-8 gap-1 overflow-auto rounded-xl border border-border/60 bg-muted/30 p-2 sm:grid-cols-10">
@@ -58,7 +60,7 @@ export function FaceGrid({ value, onChange }: { value: string; onChange: (v: str
                     <button
                         key={id}
                         type="button"
-                        title={`face ${id}`}
+                        title={t(`表情 ${id}`, `face ${id}`)}
                         onClick={() => onChange(String(id))}
                         className={cn(
                             'flex aspect-square items-center justify-center rounded-lg p-1 transition-colors hover:bg-accent',
@@ -67,7 +69,7 @@ export function FaceGrid({ value, onChange }: { value: string; onChange: (v: str
                     >
                         <img
                             src={faceUrl(id)}
-                            alt={`face ${id}`}
+                            alt={t(`表情 ${id}`, `face ${id}`)}
                             className="h-full w-full object-contain"
                             loading="lazy"
                             onError={() =>
@@ -82,7 +84,7 @@ export function FaceGrid({ value, onChange }: { value: string; onChange: (v: str
                 ))}
                 {ids.length === 0 && (
                     <span className="col-span-full py-4 text-center text-xs text-muted-foreground">
-                        无匹配表情
+                        {t('无匹配表情', 'No matching faces')}
                     </span>
                 )}
             </div>

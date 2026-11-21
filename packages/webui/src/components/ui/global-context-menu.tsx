@@ -14,6 +14,7 @@ import {
 import { ContextMenuSurface } from '@/components/interior/context-menu';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FINE_POINTER_QUERY } from '@/lib/utils';
+import { defaultTranslate, useT, type Translate } from '@/i18n';
 
 type TextEditor = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
 
@@ -113,9 +114,9 @@ function captureSelection(target: Element): SelectionSnapshot {
     };
 }
 
-function restoreRange(snapshot: SelectionSnapshot): Range {
+function restoreRange(snapshot: SelectionSnapshot, t: Translate = defaultTranslate): Range {
     if (!(snapshot.editor instanceof HTMLElement) || !snapshot.range) {
-        throw new Error('无法恢复文本选区');
+        throw new Error(t('无法恢复文本选区', 'Could not restore the text selection'));
     }
 
     snapshot.editor.focus({ preventScroll: true });
@@ -123,7 +124,7 @@ function restoreRange(snapshot: SelectionSnapshot): Range {
     const selection = window.getSelection();
 
     if (!selection) {
-        throw new Error('浏览器未提供文本选区');
+        throw new Error(t('浏览器未提供文本选区', 'The browser did not expose a text selection'));
     }
 
     selection.removeAllRanges();
@@ -142,12 +143,19 @@ function emitInput(target: TextEditor, inputType: string, data: string | null) {
     );
 }
 
-function replaceSelection(snapshot: SelectionSnapshot, value: string, inputType: string) {
+function replaceSelection(
+    snapshot: SelectionSnapshot,
+    value: string,
+    inputType: string,
+    t: Translate = defaultTranslate,
+) {
     const { editor } = snapshot;
 
     if (editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement) {
         if (snapshot.editorStart === null || snapshot.editorEnd === null) {
-            throw new Error('当前输入框不支持选区替换');
+            throw new Error(
+                t('当前输入框不支持选区替换', 'This field does not support replacing a selection'),
+            );
         }
 
         editor.focus({ preventScroll: true });
@@ -157,10 +165,10 @@ function replaceSelection(snapshot: SelectionSnapshot, value: string, inputType:
     }
 
     if (!(editor instanceof HTMLElement)) {
-        throw new Error('缺少可编辑文本目标');
+        throw new Error(t('缺少可编辑文本目标', 'There is no editable text target'));
     }
 
-    const range = restoreRange(snapshot);
+    const range = restoreRange(snapshot, t);
     range.deleteContents();
 
     if (value) {
@@ -176,7 +184,7 @@ function replaceSelection(snapshot: SelectionSnapshot, value: string, inputType:
     emitInput(editor, inputType, value || null);
 }
 
-function selectEditorContents(editor: TextEditor) {
+function selectEditorContents(editor: TextEditor, t: Translate = defaultTranslate) {
     editor.focus({ preventScroll: true });
 
     if (editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement) {
@@ -189,7 +197,7 @@ function selectEditorContents(editor: TextEditor) {
     const selection = window.getSelection();
 
     if (!selection) {
-        throw new Error('浏览器未提供文本选区');
+        throw new Error(t('浏览器未提供文本选区', 'The browser did not expose a text selection'));
     }
 
     selection.removeAllRanges();
@@ -227,12 +235,12 @@ function legacyCopy(value: string): boolean {
     }
 }
 
-async function writeClipboard(value: string) {
+async function writeClipboard(value: string, t: Translate = defaultTranslate) {
     let clipboardError: unknown;
 
     try {
         if (!navigator.clipboard?.writeText) {
-            throw new Error('Clipboard API unavailable');
+            throw new Error(t('浏览器未提供剪贴板接口', 'Clipboard API unavailable'));
         }
 
         await navigator.clipboard.writeText(value);
@@ -245,12 +253,14 @@ async function writeClipboard(value: string) {
         return;
     }
 
-    throw clipboardError instanceof Error ? clipboardError : new Error('浏览器拒绝写入剪贴板');
+    throw clipboardError instanceof Error
+        ? clipboardError
+        : new Error(t('浏览器拒绝写入剪贴板', 'The browser refused to write to the clipboard'));
 }
 
-async function readClipboard(): Promise<string> {
+async function readClipboard(t: Translate = defaultTranslate): Promise<string> {
     if (!navigator.clipboard?.readText) {
-        throw new Error('当前页面没有读取剪贴板的权限');
+        throw new Error(t('当前页面没有读取剪贴板的权限', 'This page cannot read the clipboard'));
     }
 
     return navigator.clipboard.readText();
@@ -264,7 +274,10 @@ function platformShortcut(key: string): string {
     return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? `⌘${key}` : `Ctrl+${key}`;
 }
 
-function buildActionGroups(snapshot: ContextSnapshot): MenuAction[][] {
+function buildActionGroups(
+    snapshot: ContextSnapshot,
+    t: Translate = defaultTranslate,
+): MenuAction[][] {
     const groups: MenuAction[][] = [];
     const contextual: MenuAction[] = [];
 
@@ -273,15 +286,15 @@ function buildActionGroups(snapshot: ContextSnapshot): MenuAction[][] {
         contextual.push(
             {
                 id: 'open-link',
-                label: '在新标签页打开链接',
+                label: t('在新标签页打开链接', 'Open link in new tab'),
                 icon: ExternalLink,
                 run: () => openInNewTab(href),
             },
             {
                 id: 'copy-link',
-                label: '复制链接地址',
+                label: t('复制链接地址', 'Copy link address'),
                 icon: Link2,
-                run: () => writeClipboard(href),
+                run: () => writeClipboard(href, t),
             },
         );
     }
@@ -291,15 +304,15 @@ function buildActionGroups(snapshot: ContextSnapshot): MenuAction[][] {
         contextual.push(
             {
                 id: 'open-image',
-                label: '在新标签页打开图片',
+                label: t('在新标签页打开图片', 'Open image in new tab'),
                 icon: ImageIcon,
                 run: () => openInNewTab(src),
             },
             {
                 id: 'copy-image-url',
-                label: '复制图片地址',
+                label: t('复制图片地址', 'Copy image address'),
                 icon: Copy,
-                run: () => writeClipboard(src),
+                run: () => writeClipboard(src, t),
             },
         );
     }
@@ -313,49 +326,52 @@ function buildActionGroups(snapshot: ContextSnapshot): MenuAction[][] {
         groups.push([
             {
                 id: 'cut',
-                label: '剪切',
+                label: t('剪切', 'Cut'),
                 icon: Scissors,
                 shortcut: platformShortcut('X'),
                 disabled: !hasSelection,
                 run: async () => {
-                    await writeClipboard(snapshot.selectedText);
-                    replaceSelection(snapshot, '', 'deleteByCut');
+                    await writeClipboard(snapshot.selectedText, t);
+                    replaceSelection(snapshot, '', 'deleteByCut', t);
                 },
             },
             {
                 id: 'copy',
-                label: '复制',
+                label: t('复制', 'Copy'),
                 icon: Copy,
                 shortcut: platformShortcut('C'),
                 disabled: !hasSelection,
-                run: () => writeClipboard(snapshot.selectedText),
+                run: () => writeClipboard(snapshot.selectedText, t),
             },
             {
                 id: 'paste',
-                label: '粘贴',
+                label: t('粘贴', 'Paste'),
                 icon: ClipboardPaste,
                 shortcut: platformShortcut('V'),
                 disabled: !navigator.clipboard?.readText,
-                disabledReason: '当前页面没有读取剪贴板的权限',
+                disabledReason: t(
+                    '当前页面没有读取剪贴板的权限',
+                    'This page cannot read the clipboard',
+                ),
                 run: async () =>
-                    replaceSelection(snapshot, await readClipboard(), 'insertFromPaste'),
+                    replaceSelection(snapshot, await readClipboard(t), 'insertFromPaste', t),
             },
             {
                 id: 'select-all',
-                label: '全选',
+                label: t('全选', 'Select all'),
                 icon: TextSelect,
                 shortcut: platformShortcut('A'),
-                run: () => selectEditorContents(snapshot.editor!),
+                run: () => selectEditorContents(snapshot.editor!, t),
             },
         ]);
     } else if (snapshot.selectedText) {
         groups.push([
             {
                 id: 'copy-selection',
-                label: '复制选中文本',
+                label: t('复制选中文本', 'Copy selection'),
                 icon: Copy,
                 shortcut: platformShortcut('C'),
-                run: () => writeClipboard(snapshot.selectedText),
+                run: () => writeClipboard(snapshot.selectedText, t),
             },
         ]);
     }
@@ -363,23 +379,23 @@ function buildActionGroups(snapshot: ContextSnapshot): MenuAction[][] {
     groups.push([
         {
             id: 'back',
-            label: '返回上一页',
+            label: t('返回上一页', 'Go back'),
             icon: ArrowLeft,
             disabled: window.history.length <= 1,
             run: () => window.history.back(),
         },
         {
             id: 'reload',
-            label: '刷新页面',
+            label: t('刷新页面', 'Reload page'),
             icon: RefreshCw,
             shortcut: platformShortcut('R'),
             run: () => window.location.reload(),
         },
         {
             id: 'copy-page-url',
-            label: '复制当前页面地址',
+            label: t('复制当前页面地址', 'Copy page address'),
             icon: Link2,
-            run: () => writeClipboard(window.location.href),
+            run: () => writeClipboard(window.location.href, t),
         },
     ]);
 
@@ -389,6 +405,7 @@ function buildActionGroups(snapshot: ContextSnapshot): MenuAction[][] {
 export function GlobalContextMenu() {
     const { appearance } = useTheme();
     const enabled = appearance.customContextMenu;
+    const t = useT();
     const [menu, setMenu] = React.useState<MenuState | null>(null);
     const [position, setPosition] = React.useState({ x: -9999, y: -9999, ready: false });
     const [busyAction, setBusyAction] = React.useState<string | null>(null);
@@ -547,7 +564,7 @@ export function GlobalContextMenu() {
         }
     }, [menu, position.ready]);
 
-    const groups = enabled && menu ? buildActionGroups(menu.snapshot) : [];
+    const groups = enabled && menu ? buildActionGroups(menu.snapshot, t) : [];
 
     const runAction = async (action: MenuAction) => {
         if (action.disabled || busyAction) {
@@ -568,7 +585,7 @@ export function GlobalContextMenu() {
         } catch (cause) {
             const message = cause instanceof Error ? cause.message : String(cause);
             console.error(`[context-menu] ${action.id} failed`, cause);
-            setError(message || '操作失败');
+            setError(message || t('操作失败', 'Action failed'));
         } finally {
             setBusyAction(null);
         }
@@ -578,7 +595,7 @@ export function GlobalContextMenu() {
         <ContextMenuSurface
             openKey={enabled && menu ? menu.id : null}
             menuRef={menuRef}
-            label="右键菜单"
+            label={t('右键菜单', 'Context menu')}
             placement={{
                 left: position.x,
                 top: position.y,

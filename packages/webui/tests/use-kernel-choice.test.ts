@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { demoKernelCatalog, demoProcess } from '../src/demo/fixtures';
 import { useKernelChoice } from '../src/hooks/use-kernel-choice';
 import { useHookProcessOps } from '../src/hooks/use-hook-process-ops';
+import type * as I18n from '../src/i18n';
 import type { HookProcessInfo } from '../src/types';
 import type { KernelChoiceInput, KernelSelection } from '../src/lib/api/types';
 import { hookHost } from './helpers/hook-host';
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     },
     runAction: vi.fn(async (_options: unknown, action: () => Promise<unknown>) => action()),
     onAfterOp: vi.fn(),
+    language: 'zh' as I18n.Language,
 }));
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
 vi.mock('@/lib/api', async (load) => ({
@@ -22,6 +24,10 @@ vi.mock('@/lib/api', async (load) => ({
 vi.mock('@/contexts/ActionFeedbackContext', () => ({
     useActionFeedback: () => ({ runAction: mocks.runAction }),
 }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator(mocks.language) };
+});
 
 const catalog = demoKernelCatalog();
 const input: KernelChoiceInput = {
@@ -48,6 +54,7 @@ const pendingChoice = async () => {
 
 beforeEach(() => {
     vi.resetAllMocks();
+    mocks.language = 'zh';
     mocks.runAction.mockImplementation(async (_options, action) => action());
     choiceHost = hookHost();
     opsHost = hookHost();
@@ -565,6 +572,28 @@ describe('useKernelChoice through the shared useHookProcessOps load/refresh owne
         expect(operations().unloadFailedAlert).toEqual({ pid: process.pid, error: '管道仍存活' });
         operations().dismissUnloadFailedAlert();
         expect(operations().unloadFailedAlert).toBeNull();
+    });
+
+    it('localizes a visible banner without aborting or repeating an in-flight process operation', async () => {
+        const response = Promise.withResolvers<unknown>();
+        mocks.api.processes.unload.mockReturnValueOnce(response.promise);
+        const initial = operations().ops;
+        const work = initial.unload(process.pid);
+        const signal = mocks.api.processes.unload.mock.calls[0][1] as AbortSignal;
+        expect(operations().ops.banner).toBe(`正在从进程 ${process.pid} 卸载…`);
+
+        mocks.language = 'en';
+        const translated = operations().ops;
+        expect(translated.banner).toBe(`Unloading from process ${process.pid}…`);
+        expect(translated.unload).toBe(initial.unload);
+        expect(translated.statusOf(process.pid)).toBe('unload');
+        expect(signal.aborted).toBe(false);
+        expect(mocks.api.processes.unload).toHaveBeenCalledTimes(1);
+
+        response.resolve({ success: true, process: { ...process, status: 'available' } });
+        await work;
+        expect(operations().ops.banner).toBe(`Unloaded from process ${process.pid}`);
+        expect(mocks.onAfterOp).toHaveBeenCalledTimes(1);
     });
 
     it.each([

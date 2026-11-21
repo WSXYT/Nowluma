@@ -86,6 +86,7 @@ import {
     SessionsConfigForm,
 } from '@/components/pages/widget-config-forms';
 import { DeliveriesWidget } from '@/components/overview/deliveries-widget';
+import { useLocale, useT, type Translate } from '@/i18n';
 
 function qqAvatarUrl(uin: string) {
     return `/avatar/${encodeURIComponent(uin)}`;
@@ -119,6 +120,7 @@ function renderWidget(block: UiLayoutItem): ReactNode {
 }
 
 export function OverviewPage() {
+    const t = useT();
     const {
         overviewBlocks,
         setOverviewBlocks,
@@ -219,7 +221,9 @@ export function OverviewPage() {
                 }
             >
                 <div>
-                    <h2 className="workspace-display-title">从会话，到结果</h2>
+                    <h2 className="workspace-display-title">
+                        {t('从会话，到结果', 'From session to results')}
+                    </h2>
                 </div>
                 <div data-kiosk-hide className="workspace-overview-tools">
                     {editing && (
@@ -229,7 +233,7 @@ export function OverviewPage() {
                             onClick={resetLayout}
                             className="text-muted-foreground"
                         >
-                            <RotateCcw className="size-3.5" /> 恢复默认
+                            <RotateCcw className="size-3.5" /> {t('恢复默认', 'Restore defaults')}
                         </Button>
                     )}
                     <Button
@@ -239,11 +243,12 @@ export function OverviewPage() {
                     >
                         {editing ? (
                             <>
-                                <Check className="size-3.5" /> 完成编辑
+                                <Check className="size-3.5" /> {t('完成编辑', 'Done editing')}
                             </>
                         ) : (
                             <>
-                                <PanelsTopLeft className="size-3.5" /> 编辑布局
+                                <PanelsTopLeft className="size-3.5" />{' '}
+                                {t('编辑布局', 'Edit layout')}
                             </>
                         )}
                     </Button>
@@ -266,9 +271,9 @@ export function OverviewPage() {
                 }
             >
                 <div className="workspace-section-heading">
-                    <h3 id="overview-widgets-title">运行与记录</h3>
+                    <h3 id="overview-widgets-title">{t('运行与记录', 'Runtime and logs')}</h3>
                     <Link to="/logs" className="workspace-inline-link">
-                        全部运行记录
+                        {t('全部运行记录', 'All runtime logs')}
                         <ArrowRight className="size-3.5" />
                     </Link>
                 </div>
@@ -276,8 +281,14 @@ export function OverviewPage() {
                 {editing && (
                     <p className="rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
                         {isWide
-                            ? '拖动或方向键移动；Shift+方向键缩放，Delete隐藏。卡片库可重新添加，导航在「工作区管理」。'
-                            : '拖动或方向键排序；眼睛显隐、齿轮设置。手机顺序单独保存。'}
+                            ? t(
+                                  '拖动或方向键移动；Shift+方向键缩放，Delete隐藏。卡片库可重新添加，导航在「工作区管理」。',
+                                  'Drag or use arrow keys to move; Shift+arrow keys resize, and Delete hides a card. Add it back from the card library. Find navigation in Workspace management.',
+                              )
+                            : t(
+                                  '拖动或方向键排序；眼睛显隐、齿轮设置。手机顺序单独保存。',
+                                  'Drag or use arrow keys to reorder. Use the eye to show or hide cards and the gear to configure them. Mobile order is saved separately.',
+                              )}
                     </p>
                 )}
 
@@ -322,8 +333,12 @@ export function OverviewPage() {
             <Modal
                 open={!!configId}
                 onClose={() => setConfigId(null)}
-                title={configBlock ? `${widgetLabel(configBlock.id)} · 设置` : '设置'}
-                closeLabel="关闭卡片设置弹窗"
+                title={
+                    configBlock
+                        ? `${widgetLabel(configBlock.id, t)} · ${t('设置', 'Settings')}`
+                        : t('设置', 'Settings')
+                }
+                closeLabel={t('关闭卡片设置弹窗', 'Close card settings')}
                 className="workspace-modal"
                 maxWidth={384}
             >
@@ -377,12 +392,15 @@ export function OverviewPage() {
 }
 
 function EmptyLayout({ onReset }: { onReset: () => void }) {
+    const t = useT();
     return (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-muted-foreground">
             <MonitorCog className="size-8 opacity-40" strokeWidth={1.5} />
-            <p className="text-sm">所有工作台卡片都已隐藏</p>
+            <p className="text-sm">
+                {t('所有工作台卡片都已隐藏', 'All workspace cards are hidden')}
+            </p>
             <Button variant="outline" size="sm" onClick={onReset}>
-                恢复默认布局
+                {t('恢复默认布局', 'Restore default layout')}
             </Button>
         </div>
     );
@@ -399,6 +417,11 @@ function MobileLayoutRow({
     onConfigOpen: (id: string) => void;
     onMove: (direction: -1 | 1) => void;
 }) {
+    const t = useT();
+    const label = widgetLabel(item.id, t);
+    const visibilityLabel = item.visible
+        ? t(`隐藏${label}卡片`, `Hide the ${label} card`)
+        : t(`显示${label}卡片`, `Show the ${label} card`);
     const controls = useDragControls();
     const { appearance, performance } = useTheme();
     const reduced = useReducedMotionConfig() || appearance.reduceMotion || appearance.disableMotion;
@@ -421,9 +444,9 @@ function MobileLayoutRow({
         >
             <button
                 type="button"
-                aria-label={`调整${widgetLabel(item.id)}卡片顺序`}
-                aria-description="方向键排序。"
-                title="拖动或方向键排序"
+                aria-label={t(`调整${label}卡片顺序`, `Reorder the ${label} card`)}
+                aria-description={t('方向键排序。', 'Use arrow keys to reorder.')}
+                title={t('拖动或方向键排序', 'Drag or use arrow keys to reorder')}
                 className="inline-flex size-11 shrink-0 touch-none items-center justify-center text-muted-foreground"
                 onPointerDown={(e) => controls.start(e)}
                 onKeyDown={(event) => {
@@ -446,16 +469,14 @@ function MobileLayoutRow({
             >
                 <GripVertical className="size-4" />
             </button>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {widgetLabel(item.id)}
-            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
             {CONFIGURABLE_WIDGETS.has(item.id) && item.visible && (
                 <button
                     type="button"
                     onClick={() => onConfigOpen(item.id)}
                     onPointerDown={(e) => e.stopPropagation()}
-                    title={`${widgetLabel(item.id)} · 卡片设置`}
-                    aria-label={`设置${widgetLabel(item.id)}卡片`}
+                    title={t(`${label} · 卡片设置`, `${label} · Card settings`)}
+                    aria-label={t(`设置${label}卡片`, `Configure the ${label} card`)}
                     className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground cursor-pointer"
                 >
                     <Settings2 className="size-3.5" />
@@ -465,8 +486,8 @@ function MobileLayoutRow({
                 type="button"
                 onClick={() => onToggle(item.id)}
                 onPointerDown={(e) => e.stopPropagation()}
-                title={`${item.visible ? '隐藏' : '显示'}${widgetLabel(item.id)}卡片`}
-                aria-label={`${item.visible ? '隐藏' : '显示'}${widgetLabel(item.id)}卡片`}
+                title={visibilityLabel}
+                aria-label={visibilityLabel}
                 className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground cursor-pointer"
             >
                 {item.visible ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
@@ -575,49 +596,56 @@ function WidgetGallery({
     hidden: UiLayoutItem[];
     onAdd: (id: string, x: number, y: number) => void;
 }) {
+    const t = useT();
     return (
         <div
             tabIndex={-1}
             role="region"
-            aria-label="卡片库"
+            aria-label={t('卡片库', 'Card library')}
             className="widget-gallery w-52 shrink-0 self-stretch rounded-lg border border-dashed bg-muted/20 p-3"
         >
             <div className="mb-1.5 flex items-center gap-1.5 px-1">
                 <LayoutGrid className="size-3.5 text-primary" />
-                <span className="text-xs font-semibold">卡片库</span>
+                <span className="text-xs font-semibold">{t('卡片库', 'Card library')}</span>
             </div>
             <p className="mb-3 px-1 text-xs leading-snug text-muted-foreground">
-                点加号或拖到左侧画布添加；把卡片拖回此处即可移除。
+                {t(
+                    '点加号或拖到左侧画布添加；把卡片拖回此处即可移除。',
+                    'Click + or drag a card onto the grid to add it. Drag it back here to remove it.',
+                )}
             </p>
             {hidden.length === 0 ? (
                 <div className="rounded-lg border border-dashed px-2 py-8 text-center text-xs text-muted-foreground">
-                    全部卡片已添加
+                    {t('全部卡片已添加', 'All cards have been added')}
                 </div>
             ) : (
                 <div className="flex flex-col gap-1.5">
-                    {hidden.map((b) => (
-                        <div
-                            key={b.id}
-                            draggable
-                            onDragStart={(e) => {
-                                e.dataTransfer.setData(WIDGET_DRAG_TYPE, b.id);
-                                e.dataTransfer.effectAllowed = 'copy';
-                            }}
-                            className="flex cursor-grab items-center gap-2 rounded-lg border bg-card/70 px-2.5 py-2 text-sm transition-colors active:cursor-grabbing hover:border-primary/40 hover:bg-accent/30"
-                        >
-                            <GripVertical className="size-3.5 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 flex-1 truncate">{widgetLabel(b.id)}</span>
-                            <button
-                                type="button"
-                                aria-label={`添加 ${widgetLabel(b.id)}`}
-                                onClick={() => onAdd(b.id, 0, 0)}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                    {hidden.map((b) => {
+                        const label = widgetLabel(b.id, t);
+                        return (
+                            <div
+                                key={b.id}
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData(WIDGET_DRAG_TYPE, b.id);
+                                    e.dataTransfer.effectAllowed = 'copy';
+                                }}
+                                className="flex cursor-grab items-center gap-2 rounded-lg border bg-card/70 px-2.5 py-2 text-sm transition-colors active:cursor-grabbing hover:border-primary/40 hover:bg-accent/30"
                             >
-                                <Plus className="size-3.5" />
-                            </button>
-                        </div>
-                    ))}
+                                <GripVertical className="size-3.5 shrink-0 text-muted-foreground" />
+                                <span className="min-w-0 flex-1 truncate">{label}</span>
+                                <button
+                                    type="button"
+                                    aria-label={t(`添加 ${label}`, `Add ${label}`)}
+                                    onClick={() => onAdd(b.id, 0, 0)}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                                >
+                                    <Plus className="size-3.5" />
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -627,6 +655,7 @@ function WidgetGallery({
 // Empty-canvas drop target shown in edit mode when no widget is on the grid —
 // keeps an HTML5 drop zone so the first widget can still be dragged in.
 function DropPlaceholder({ onAdd }: { onAdd: (id: string, x: number, y: number) => void }) {
+    const t = useT();
     return (
         <div
             onDragOver={(e) => e.preventDefault()}
@@ -641,7 +670,12 @@ function DropPlaceholder({ onAdd }: { onAdd: (id: string, x: number, y: number) 
             className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-16 text-center text-muted-foreground"
         >
             <LayoutGrid className="size-8 opacity-40" strokeWidth={1.5} />
-            <p className="text-sm">从右侧「卡片库」点加号或拖动卡片到这里</p>
+            <p className="text-sm">
+                {t(
+                    '从右侧「卡片库」点加号或拖动卡片到这里',
+                    'Click + in the card library or drag a card here',
+                )}
+            </p>
         </div>
     );
 }
@@ -657,6 +691,7 @@ function StatTileDetails({
     details: string;
     children: ReactNode;
 }) {
+    const t = useT();
     const [open, setOpen] = useState(false);
     const [pinned, setPinned] = useState(false);
     const detailsId = useId();
@@ -682,7 +717,7 @@ function StatTileDetails({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`查看${label}完整信息`}
+                        aria-label={t(`查看${label}完整信息`, `View full details for ${label}`)}
                         aria-describedby={detailsId}
                         aria-expanded={open}
                         className="absolute -right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground"
@@ -811,19 +846,55 @@ function StatTile({
     );
 }
 
+// Keep the existing zh uptime formatting and give English the same compact units.
+function displayUptime(seconds: number, language: 'zh' | 'en'): string {
+    if (language === 'zh') {
+        return formatUptime(seconds);
+    }
+
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+        return '0 sec';
+    }
+
+    const days = Math.floor(seconds / 86_400);
+    const hours = Math.floor((seconds % 86_400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return [
+        days ? `${days}d` : '',
+        hours ? `${hours}h` : '',
+        minutes || (!days && !hours) ? `${minutes}m` : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+}
+
+const CONSOLE_STATUS_LABELS: Partial<Record<string, readonly [string, string]>> = {
+    已连接: ['服务在线', 'Server online'],
+    未连接: ['未连接', 'Disconnected'],
+    未授权: ['未授权', 'Unauthorized'],
+};
+
 function StatTileWidget({ id }: { id: string }) {
+    const t = useT();
+    const { language } = useLocale();
     const { qqList, processList, systemInfo, resources } = useAppState();
     const { status } = useSession();
     const online = status === '已连接';
+    const label = widgetLabel(id, t);
+    const statusLabel = CONSOLE_STATUS_LABELS[status];
 
     switch (id) {
         case 'stat:status':
             return (
                 <StatTile
                     icon={<Radio className="size-3.5" />}
-                    label="控制台连接"
-                    value={online ? '服务在线' : status}
-                    subtext={online ? '连接正常' : '请检查服务进程'}
+                    label={label}
+                    value={statusLabel ? t(...statusLabel) : status}
+                    subtext={
+                        online
+                            ? t('连接正常', 'Connected')
+                            : t('请检查服务进程', 'Check the server process')
+                    }
                     accent={online}
                 />
             );
@@ -831,15 +902,18 @@ function StatTileWidget({ id }: { id: string }) {
             return (
                 <StatTile
                     icon={<MessageCircle className="size-3.5" />}
-                    label="已登录会话"
+                    label={label}
                     ready={resources.qqList.ready}
                     value={resources.qqList.error && qqList.length === 0 ? '—' : qqList.length}
                     subtext={
                         resources.qqList.error
                             ? qqList.length > 0
-                                ? '更新失败，显示上次数据'
-                                : '加载失败'
-                            : `已接入 ${qqList.length} 个会话`
+                                ? t(
+                                      '更新失败，显示上次数据',
+                                      'Refresh failed; showing previous data',
+                                  )
+                                : t('加载失败', 'Failed to load')
+                            : t(`已接入 ${qqList.length} 个会话`, `${qqList.length} connected`)
                     }
                 />
             );
@@ -850,7 +924,7 @@ function StatTileWidget({ id }: { id: string }) {
             return (
                 <StatTile
                     icon={<PanelsTopLeft className="size-3.5" />}
-                    label="QQ 程序"
+                    label={label}
                     ready={resources.processList.ready}
                     value={
                         resources.processList.error && processList.length === 0
@@ -860,9 +934,15 @@ function StatTileWidget({ id }: { id: string }) {
                     subtext={
                         resources.processList.error
                             ? processList.length > 0
-                                ? '更新失败，显示上次数据'
-                                : '加载失败'
-                            : `${onlineProcs} 已接入 · ${unattachedProcs} 未接入`
+                                ? t(
+                                      '更新失败，显示上次数据',
+                                      'Refresh failed; showing previous data',
+                                  )
+                                : t('加载失败', 'Failed to load')
+                            : t(
+                                  `${onlineProcs} 已接入 · ${unattachedProcs} 未接入`,
+                                  `${onlineProcs} connected · ${unattachedProcs} not loaded`,
+                              )
                     }
                     to="/processes"
                 />
@@ -874,18 +954,21 @@ function StatTileWidget({ id }: { id: string }) {
             const subtext = systemInfo
                 ? `${shortDistro(systemInfo.distro)} · ${systemInfo.archLabel}`
                 : resources.systemInfo.error
-                  ? '加载失败'
-                  : '加载中';
+                  ? t('加载失败', 'Failed to load')
+                  : t('加载中', 'Loading');
             return (
                 <StatTile
                     icon={<Server className="size-3.5" />}
-                    label="运行设备"
+                    label={label}
                     ready={resources.systemInfo.ready}
                     value={value}
                     subtext={subtext}
                     details={
                         systemInfo
-                            ? `主机名：${systemInfo.hostname}\n系统：${systemInfo.distro} · ${systemInfo.archLabel}`
+                            ? t(
+                                  `主机名：${systemInfo.hostname}\n系统：${systemInfo.distro} · ${systemInfo.archLabel}`,
+                                  `Hostname: ${systemInfo.hostname}\nSystem: ${systemInfo.distro} · ${systemInfo.archLabel}`,
+                              )
                             : undefined
                     }
                 />
@@ -893,18 +976,27 @@ function StatTileWidget({ id }: { id: string }) {
         }
 
         case 'stat:uptime': {
-            const systemUptime = systemInfo ? formatUptime(systemInfo.uptime) : '—';
-            const processUptime = systemInfo ? formatUptime(systemInfo.processUptime) : undefined;
+            const systemUptime = systemInfo ? displayUptime(systemInfo.uptime, language) : '—';
+            const processUptime = systemInfo
+                ? displayUptime(systemInfo.processUptime, language)
+                : undefined;
             return (
                 <StatTile
                     icon={<Clock3 className="size-3.5" />}
-                    label="连续运行"
+                    label={label}
                     ready={resources.systemInfo.ready}
                     value={systemUptime}
-                    subtext={processUptime ? `服务 ${processUptime}` : undefined}
+                    subtext={
+                        processUptime
+                            ? t(`服务 ${processUptime}`, `Server ${processUptime}`)
+                            : undefined
+                    }
                     details={
                         processUptime
-                            ? `系统运行：${systemUptime}\nNowluma 进程：${processUptime}`
+                            ? t(
+                                  `系统运行：${systemUptime}\nNowluma 进程：${processUptime}`,
+                                  `System uptime: ${systemUptime}\nNowluma process: ${processUptime}`,
+                              )
                             : undefined
                     }
                 />
@@ -919,24 +1011,34 @@ function StatTileWidget({ id }: { id: string }) {
 // ─────────────── host resources ───────────────
 
 function HostBlock({ config }: { config: HostConfig }) {
+    const t = useT();
     const { systemInfo, refreshSystem, resources } = useAppState();
+    const cores = systemInfo?.cpu.cores ?? 0;
+    const perCoreCount = systemInfo?.cpu.perCore.length ?? 0;
+    const coresLabel = t(`${cores} 核`, `${cores} ${cores === 1 ? 'core' : 'cores'}`);
     return (
         <Card className="workspace-panel workspace-resource-panel">
             <CardHeader className="workspace-panel-heading">
                 <div>
                     <CardTitle>
-                        <h4>资源用量</h4>
+                        <h4>{widgetLabel('host', t)}</h4>
                     </CardTitle>
                     <CardDescription className="workspace-panel-description">
                         {systemInfo
-                            ? `${systemInfo.cpu.model.trim()} · ${systemInfo.cpu.cores} 核 · Node ${systemInfo.nodeVersion}${
-                                  resources.systemInfo.error ? ' · 更新失败，显示上次数据' : ''
+                            ? `${systemInfo.cpu.model.trim()} · ${coresLabel} · Node ${systemInfo.nodeVersion}${
+                                  resources.systemInfo.error
+                                      ? t(
+                                            ' · 更新失败，显示上次数据',
+                                            ' · Refresh failed; showing previous data',
+                                        )
+                                      : ''
                               }`
-                            : (resources.systemInfo.error ?? '正在采集主机信息…')}
+                            : (resources.systemInfo.error ??
+                              t('正在采集主机信息…', 'Reading host information…'))}
                     </CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={refreshSystem}>
-                    <RefreshCw className="size-3.5" /> 刷新
+                    <RefreshCw className="size-3.5" /> {t('刷新', 'Refresh')}
                 </Button>
             </CardHeader>
             <CardContent className="workspace-host-panels min-h-0 flex-1 overflow-auto">
@@ -946,10 +1048,15 @@ function HostBlock({ config }: { config: HostConfig }) {
                         <div className="mb-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Cpu className="size-4 text-primary" />
-                                <span className="text-sm font-semibold">CPU 使用率</span>
+                                <span className="text-sm font-semibold">
+                                    {t('CPU 使用率', 'CPU usage')}
+                                </span>
                                 {systemInfo && (
                                     <span className="text-meta text-muted-foreground tabular-nums">
-                                        {systemInfo.cpu.perCore.length} 核
+                                        {t(
+                                            `${perCoreCount} 核`,
+                                            `${perCoreCount} ${perCoreCount === 1 ? 'core' : 'cores'}`,
+                                        )}
                                     </span>
                                 )}
                             </div>
@@ -963,14 +1070,14 @@ function HostBlock({ config }: { config: HostConfig }) {
                             lines={4}
                             lineHeight={28}
                             barHeight={9}
-                            label="CPU 使用率"
+                            label={t('CPU 使用率', 'CPU usage')}
                             className="skeleton-swap-fluid min-h-[112px]"
                         >
                             {systemInfo ? (
                                 <>
                                     <Progress value={systemInfo.cpu.average} />
                                     <p className="mt-2 text-meta text-muted-foreground tabular-nums">
-                                        负载:{' '}
+                                        {t('负载:', 'Load:')}{' '}
                                         {systemInfo.cpu.loadAvg
                                             .map((v) => v.toFixed(2))
                                             .join(' / ')}
@@ -1020,7 +1127,9 @@ function HostBlock({ config }: { config: HostConfig }) {
                         <div className="mb-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <MemoryStick className="size-4 text-primary" />
-                                <span className="text-sm font-semibold">内存使用</span>
+                                <span className="text-sm font-semibold">
+                                    {t('内存使用', 'Memory usage')}
+                                </span>
                             </div>
                             <span className="text-sm font-semibold tabular-nums text-primary">
                                 {systemInfo ? `${systemInfo.memory.usagePercent.toFixed(1)}%` : '—'}
@@ -1032,7 +1141,7 @@ function HostBlock({ config }: { config: HostConfig }) {
                             lines={3}
                             lineHeight={24}
                             barHeight={9}
-                            label="内存使用"
+                            label={t('内存使用', 'Memory usage')}
                             className="skeleton-swap-fluid min-h-[72px]"
                         >
                             {systemInfo ? (
@@ -1043,21 +1152,21 @@ function HostBlock({ config }: { config: HostConfig }) {
                                     const segs = [
                                         {
                                             key: 'proc',
-                                            label: '本进程',
+                                            label: t('本进程', 'This process'),
                                             bytes: rss,
                                             grow: (rss / m.total) * 100,
                                             color: 'var(--primary)',
                                         },
                                         {
                                             key: 'other',
-                                            label: '其他已用',
+                                            label: t('其他已用', 'Other processes'),
                                             bytes: other,
                                             grow: (other / m.total) * 100,
                                             color: 'color-mix(in oklab, var(--primary) 45%, transparent)',
                                         },
                                         {
                                             key: 'free',
-                                            label: '空闲',
+                                            label: t('空闲', 'Free'),
                                             bytes: m.free,
                                             grow: (m.free / m.total) * 100,
                                             color: 'color-mix(in oklab, var(--muted) 85%, transparent)',
@@ -1113,7 +1222,9 @@ function HostBlock({ config }: { config: HostConfig }) {
                         <div className="mb-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Server className="size-4 text-primary" />
-                                <span className="text-sm font-semibold">运行进程</span>
+                                <span className="text-sm font-semibold">
+                                    {t('运行进程', 'Runtime process')}
+                                </span>
                             </div>
                             <span className="text-sm font-semibold tabular-nums text-primary">
                                 {systemInfo ? `PID ${systemInfo.runtime.pid}` : '—'}
@@ -1125,7 +1236,7 @@ function HostBlock({ config }: { config: HostConfig }) {
                             lines={3}
                             lineHeight={29}
                             barHeight={9}
-                            label="运行进程"
+                            label={t('运行进程', 'Runtime process')}
                             className={
                                 resources.systemInfo.ready ? 'skeleton-swap-fluid min-h-[88px]' : ''
                             }
@@ -1139,14 +1250,18 @@ function HostBlock({ config }: { config: HostConfig }) {
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between rounded-md bg-background/60 px-2 py-1.5">
-                                        <span className="text-muted-foreground">堆内存</span>
+                                        <span className="text-muted-foreground">
+                                            {t('堆内存', 'Heap memory')}
+                                        </span>
                                         <span className="font-medium tabular-nums">
                                             {formatBytes(systemInfo.runtime.heapUsed)} /{' '}
                                             {formatBytes(systemInfo.runtime.heapTotal)}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between rounded-md bg-background/60 px-2 py-1.5">
-                                        <span className="text-muted-foreground">外部内存</span>
+                                        <span className="text-muted-foreground">
+                                            {t('外部内存', 'External memory')}
+                                        </span>
                                         <span className="font-medium tabular-nums">
                                             {formatBytes(systemInfo.runtime.external)}
                                         </span>
@@ -1168,6 +1283,9 @@ function HostBlock({ config }: { config: HostConfig }) {
 // ─────────────── online sessions ───────────────
 
 function SessionsBlock({ config }: { config: SessionsConfig }) {
+    const t = useT();
+    const { locale } = useLocale();
+    const label = widgetLabel('sessions', t);
     const { qqList, resources, setSelectedUin } = useAppState();
     const list = useMemo(() => {
         const f = config.filter.trim().toLowerCase();
@@ -1178,28 +1296,31 @@ function SessionsBlock({ config }: { config: SessionsConfig }) {
             : qqList;
 
         if (config.sort === 'uin') {
-            arr = [...arr].sort((a, b) => a.uin.localeCompare(b.uin, undefined, { numeric: true }));
+            arr = [...arr].sort((a, b) => a.uin.localeCompare(b.uin, locale, { numeric: true }));
         } else if (config.sort === 'nickname') {
-            arr = [...arr].sort((a, b) => (a.nickname ?? '').localeCompare(b.nickname ?? ''));
+            arr = [...arr].sort((a, b) =>
+                (a.nickname ?? '').localeCompare(b.nickname ?? '', locale),
+            );
         }
 
         // 'recent' keeps the server/insertion order.
         return arr;
-    }, [qqList, config.sort, config.filter]);
+    }, [qqList, config.sort, config.filter, locale]);
 
     return (
         <Card className="workspace-panel workspace-sessions-panel">
             <CardHeader className="workspace-panel-heading">
                 <div>
                     <CardTitle>
-                        <h4>QQ 会话</h4>
+                        <h4>{label}</h4>
                     </CardTitle>
                     <CardDescription className="workspace-panel-description">
-                        已完成登录{config.filter.trim() ? ` · ${config.filter.trim()}` : ''}
+                        {t('已完成登录', 'Signed-in sessions')}
+                        {config.filter.trim() ? ` · ${config.filter.trim()}` : ''}
                     </CardDescription>
                 </div>
                 <Link to="/processes" className="workspace-inline-link">
-                    管理
+                    {t('管理', 'Manage')}
                     <ArrowRight className="size-3.5" />
                 </Link>
             </CardHeader>
@@ -1210,7 +1331,7 @@ function SessionsBlock({ config }: { config: SessionsConfig }) {
                     lines={5}
                     lineHeight={24}
                     barHeight={9}
-                    label="QQ 会话"
+                    label={label}
                     className={resources.qqList.ready ? 'skeleton-swap-fluid min-h-[120px]' : ''}
                 >
                     {resources.qqList.ready ? (
@@ -1219,15 +1340,21 @@ function SessionsBlock({ config }: { config: SessionsConfig }) {
                                 role="alert"
                                 className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-8 text-center text-sm text-destructive"
                             >
-                                {resources.qqList.error}
+                                {t(
+                                    resources.qqList.error,
+                                    `Failed to read QQ sessions: ${resources.qqList.error}`,
+                                )}
                             </p>
                         ) : list.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-10 text-muted-foreground">
                                 <Users className="size-8 opacity-40" strokeWidth={1.5} />
                                 <p className="text-sm">
                                     {qqList.length === 0
-                                        ? '还没有已登录的 QQ 会话'
-                                        : '无匹配的会话'}
+                                        ? t(
+                                              '还没有已登录的 QQ 会话',
+                                              'No signed-in QQ sessions yet',
+                                          )
+                                        : t('无匹配的会话', 'No matching sessions')}
                                 </p>
                             </div>
                         ) : (
@@ -1237,7 +1364,10 @@ function SessionsBlock({ config }: { config: SessionsConfig }) {
                                         role="alert"
                                         className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
                                     >
-                                        {resources.qqList.error}；当前显示上次成功读取的 QQ 会话。
+                                        {t(
+                                            `${resources.qqList.error}；当前显示上次成功读取的 QQ 会话。`,
+                                            `${resources.qqList.error} Showing the last successfully loaded QQ sessions.`,
+                                        )}
                                     </p>
                                 )}
                                 <div className="workspace-session-list">
@@ -1246,7 +1376,10 @@ function SessionsBlock({ config }: { config: SessionsConfig }) {
                                             key={q.uin}
                                             to="/config"
                                             onClick={() => setSelectedUin(q.uin)}
-                                            aria-label={`${q.nickname || q.uin}，管理机器人连接`}
+                                            aria-label={t(
+                                                `${q.nickname || q.uin}，管理机器人连接`,
+                                                `Manage bot connections for ${q.nickname || q.uin}`,
+                                            )}
                                             className="workspace-session-row"
                                         >
                                             <Avatar size={32}>
@@ -1268,7 +1401,9 @@ function SessionsBlock({ config }: { config: SessionsConfig }) {
                                             </div>
                                             <span className="workspace-session-status">
                                                 <span aria-hidden="true" />
-                                                {resources.qqList.error ? '上次已登录' : '已登录'}
+                                                {resources.qqList.error
+                                                    ? t('上次已登录', 'Previously signed in')
+                                                    : t('已登录', 'Signed in')}
                                             </span>
                                         </Link>
                                     ))}
@@ -1291,18 +1426,18 @@ const CONN_STATUS_STYLE: Record<AdapterStatusLevel, string> = {
     degraded: 'bg-destructive/10 text-destructive',
     disabled: 'bg-muted text-muted-foreground',
 };
-const CONN_STATUS_LABEL: Record<AdapterStatusLevel, string> = {
-    ok: '已就绪',
-    warn: '注意',
-    down: '异常',
-    degraded: '应用失败',
-    disabled: '未启用',
+const CONN_STATUS_LABEL: Record<AdapterStatusLevel, [string, string]> = {
+    ok: ['已就绪', 'Ready'],
+    warn: ['注意', 'Warning'],
+    down: ['异常', 'Down'],
+    degraded: ['应用失败', 'Failed to apply'],
+    disabled: ['未启用', 'Disabled'],
 };
-const ADAPTER_KIND_LABEL: Record<AdapterStatus['kind'], string> = {
-    httpServer: 'HTTP 服务端',
-    httpClient: 'HTTP 上报',
-    wsServer: 'WS 服务端',
-    wsClient: 'WS 客户端',
+const ADAPTER_KIND_LABEL: Record<AdapterStatus['kind'], [string, string]> = {
+    httpServer: ['HTTP 服务端', 'HTTP server'],
+    httpClient: ['HTTP 上报', 'HTTP reporting'],
+    wsServer: ['WS 服务端', 'WS server'],
+    wsClient: ['WS 客户端', 'WS client'],
 };
 
 // Worst-status-first ordering (down → warn → disabled → ok).
@@ -1315,6 +1450,9 @@ const CONN_STATUS_RANK: Record<AdapterStatusLevel, number> = {
 };
 
 function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
+    const t = useT();
+    const { locale } = useLocale();
+    const label = widgetLabel('connections', t);
     const { connections, resources, setSelectedUin } = useAppState();
     const list = useMemo(() => {
         const f = config.filter.trim().toLowerCase();
@@ -1337,7 +1475,9 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
         }
 
         if (config.sort === 'name') {
-            arr = [...arr].sort((a, b) => (a.nickname || a.uin).localeCompare(b.nickname || b.uin));
+            arr = [...arr].sort((a, b) =>
+                (a.nickname || a.uin).localeCompare(b.nickname || b.uin, locale),
+            );
         } else if (config.sort === 'status') {
             const worst = (acc: (typeof arr)[number]) =>
                 acc.adapters.reduce((m, a) => Math.min(m, CONN_STATUS_RANK[a.status]), 99);
@@ -1345,7 +1485,7 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
         }
 
         return arr;
-    }, [connections, config.filter, config.onlyIssues, config.sort]);
+    }, [connections, config.filter, config.onlyIssues, config.sort, locale]);
 
     const filtered = config.filter.trim() !== '' || config.onlyIssues;
     return (
@@ -1353,15 +1493,17 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
             <CardHeader className="workspace-panel-heading">
                 <div>
                     <CardTitle>
-                        <h4>机器人连接</h4>
+                        <h4>{label}</h4>
                     </CardTitle>
                     <CardDescription className="workspace-panel-description">
-                        端点状态{config.onlyIssues ? ' · 仅异常' : ''}
+                        {config.onlyIssues
+                            ? t('端点状态 · 仅异常', 'Endpoint status · Issues only')
+                            : t('端点状态', 'Endpoint status')}
                         {config.filter.trim() ? ` · ${config.filter.trim()}` : ''}
                     </CardDescription>
                 </div>
                 <Link to="/config" className="workspace-inline-link">
-                    管理连接
+                    {t('管理连接', 'Manage connections')}
                     <ArrowRight className="size-3.5" />
                 </Link>
             </CardHeader>
@@ -1372,7 +1514,7 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                     lines={5}
                     lineHeight={24}
                     barHeight={9}
-                    label="机器人连接"
+                    label={label}
                     className={
                         resources.connections.ready ? 'skeleton-swap-fluid min-h-[120px]' : ''
                     }
@@ -1383,13 +1525,18 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                                 role="alert"
                                 className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-8 text-center text-sm text-destructive"
                             >
-                                {resources.connections.error}
+                                {t(
+                                    resources.connections.error,
+                                    `Failed to read bot connections: ${resources.connections.error}`,
+                                )}
                             </p>
                         ) : list.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-10 text-muted-foreground">
                                 <Cable className="size-8 opacity-40" strokeWidth={1.5} />
                                 <p className="text-sm">
-                                    {filtered ? '无匹配的连接' : '先接入一个 QQ 会话'}
+                                    {filtered
+                                        ? t('无匹配的连接', 'No matching connections')
+                                        : t('先接入一个 QQ 会话', 'Connect a QQ session first')}
                                 </p>
                             </div>
                         ) : (
@@ -1399,8 +1546,10 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                                         role="alert"
                                         className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
                                     >
-                                        {resources.connections.error}
-                                        ；当前显示上次成功读取的连接状态。
+                                        {t(
+                                            `${resources.connections.error}；当前显示上次成功读取的连接状态。`,
+                                            `${resources.connections.error} Showing the last successfully loaded connection status.`,
+                                        )}
                                     </p>
                                 )}
                                 {list.map((acc) => (
@@ -1410,7 +1559,10 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                                                 to="/config"
                                                 onClick={() => setSelectedUin(acc.uin)}
                                                 className="workspace-account-heading-link text-sm font-medium"
-                                                aria-label={`${acc.nickname || acc.uin}，管理机器人连接`}
+                                                aria-label={t(
+                                                    `${acc.nickname || acc.uin}，管理机器人连接`,
+                                                    `Manage bot connections for ${acc.nickname || acc.uin}`,
+                                                )}
                                             >
                                                 {acc.nickname || acc.uin}
                                             </Link>
@@ -1438,7 +1590,13 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                                                                     {adp.name}
                                                                 </span>
                                                                 <span className="workspace-endpoint-kind">
-                                                                    {ADAPTER_KIND_LABEL[adp.kind]}
+                                                                    {ADAPTER_KIND_LABEL[adp.kind]
+                                                                        ? t(
+                                                                              ...ADAPTER_KIND_LABEL[
+                                                                                  adp.kind
+                                                                              ],
+                                                                          )
+                                                                        : adp.kind}
                                                                 </span>
                                                             </div>
                                                             <p className="workspace-endpoint-detail">
@@ -1451,7 +1609,7 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                                                                 >
                                                                     {new Date(
                                                                         adp.lastErrorAt,
-                                                                    ).toLocaleString()}{' '}
+                                                                    ).toLocaleString(locale)}{' '}
                                                                     · {adp.lastError}
                                                                 </p>
                                                             )}
@@ -1462,14 +1620,20 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
                                                                 CONN_STATUS_STYLE[adp.status],
                                                             )}
                                                         >
-                                                            {CONN_STATUS_LABEL[adp.status]}
+                                                            {CONN_STATUS_LABEL[adp.status]
+                                                                ? t(
+                                                                      ...CONN_STATUS_LABEL[
+                                                                          adp.status
+                                                                      ],
+                                                                  )
+                                                                : adp.status}
                                                         </span>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : acc.databaseMigration?.usable !== false ? (
                                             <p className="workspace-widget-empty-note">
-                                                还没有机器人连接
+                                                {t('还没有机器人连接', 'No bot connections yet')}
                                             </p>
                                         ) : null}
                                     </div>
@@ -1484,16 +1648,32 @@ function ConnectionsBlock({ config }: { config: ConnectionsConfig }) {
 }
 
 function DatabaseMigrationProgress({ migration }: { migration: AccountDatabaseMigration }) {
+    const t = useT();
+    const { locale } = useLocale();
     const percentage = migration.progress === null ? null : Math.round(migration.progress * 100);
     const title =
         migration.phase === 'preparing'
-            ? '正在准备数据库，账号暂不可用'
+            ? t(
+                  '正在准备数据库，账号暂不可用',
+                  'Preparing the database. The account is temporarily unavailable.',
+              )
             : migration.phase === 'failed'
               ? migration.usable
-                  ? '历史数据迁移失败，账号功能可用'
-                  : '数据库准备失败，账号暂不可用'
-              : '正在后台迁移历史数据，账号功能可用';
-    const eta = formatMigrationEta(migration.estimatedRemainingSeconds);
+                  ? t(
+                        '历史数据迁移失败，账号功能可用',
+                        'History migration failed. The account remains usable.',
+                    )
+                  : t(
+                        '数据库准备失败，账号暂不可用',
+                        'Database preparation failed. The account is temporarily unavailable.',
+                    )
+              : t(
+                    '正在后台迁移历史数据，账号功能可用',
+                    'Migrating history in the background. The account remains usable.',
+                );
+    const eta = formatMigrationEta(migration.estimatedRemainingSeconds, t);
+    const processed = migration.total !== null ? migration.processed.toLocaleString(locale) : '';
+    const total = migration.total?.toLocaleString(locale);
 
     return (
         <div
@@ -1512,8 +1692,10 @@ function DatabaseMigrationProgress({ migration }: { migration: AccountDatabaseMi
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-meta text-muted-foreground">
                 {migration.total !== null && (
                     <span className="tabular-nums">
-                        已处理 {migration.processed.toLocaleString()} /{' '}
-                        {migration.total.toLocaleString()} 条
+                        {t(
+                            `已处理 ${processed} / ${total} 条`,
+                            `Processed ${processed} / ${total} records`,
+                        )}
                     </span>
                 )}
                 {migration.phase !== 'failed' && <span>{eta}</span>}
@@ -1523,33 +1705,37 @@ function DatabaseMigrationProgress({ migration }: { migration: AccountDatabaseMi
     );
 }
 
-function formatMigrationEta(seconds: number | null): string {
+function formatMigrationEta(seconds: number | null, t: Translate): string {
     if (seconds === null) {
-        return '剩余时间估算中';
+        return t('剩余时间估算中', 'Estimating time remaining');
     }
 
     if (seconds <= 0) {
-        return '即将完成';
+        return t('即将完成', 'Almost done');
     }
 
     if (seconds < 60) {
-        return `预计剩余 ${seconds} 秒`;
+        return t(`预计剩余 ${seconds} 秒`, `About ${seconds} sec remaining`);
     }
 
     const minutes = Math.ceil(seconds / 60);
 
     if (minutes < 60) {
-        return `预计剩余 ${minutes} 分钟`;
+        return t(`预计剩余 ${minutes} 分钟`, `About ${minutes} min remaining`);
     }
 
     const hours = Math.floor(minutes / 60);
     const remainder = minutes % 60;
-    return `预计剩余 ${hours} 小时${remainder > 0 ? ` ${remainder} 分钟` : ''}`;
+    return t(
+        `预计剩余 ${hours} 小时${remainder > 0 ? ` ${remainder} 分钟` : ''}`,
+        `About ${hours} hr${remainder > 0 ? ` ${remainder} min` : ''} remaining`,
+    );
 }
 
 // ─────────────── static widgets (note / link / account) ───────────────
 
 function NoteWidget({ config }: { config: NoteConfig }) {
+    const t = useT();
     return (
         <Card className="workspace-panel h-full overflow-hidden">
             <CardContent className="h-full overflow-auto p-4">
@@ -1558,7 +1744,9 @@ function NoteWidget({ config }: { config: NoteConfig }) {
                         {config.text}
                     </p>
                 ) : (
-                    <p className="text-sm text-muted-foreground">空便签 · 编辑时填写内容</p>
+                    <p className="text-sm text-muted-foreground">
+                        {t('空便签 · 编辑时填写内容', 'Empty note · Add text in edit mode')}
+                    </p>
                 )}
             </CardContent>
         </Card>
@@ -1566,6 +1754,7 @@ function NoteWidget({ config }: { config: NoteConfig }) {
 }
 
 function LinkWidget({ config }: { config: LinkConfig }) {
+    const t = useT();
     const Icon = LINK_ICON_COMPONENTS[config.icon] ?? LINK_ICON_COMPONENTS.link;
 
     if (!config.url) {
@@ -1573,7 +1762,9 @@ function LinkWidget({ config }: { config: LinkConfig }) {
             <Card className="workspace-panel h-full overflow-hidden">
                 <CardContent className="flex h-full items-center gap-3 p-4 text-muted-foreground">
                     <Icon className="size-5 shrink-0" />
-                    <span className="text-sm">未配置链接 · 编辑时设置</span>
+                    <span className="text-sm">
+                        {t('未配置链接 · 编辑时设置', 'No link set · Configure in edit mode')}
+                    </span>
                 </CardContent>
             </Card>
         );
@@ -1605,6 +1796,7 @@ function LinkWidget({ config }: { config: LinkConfig }) {
 }
 
 function AccountWidget({ config }: { config: AccountConfig }) {
+    const t = useT();
     const { qqList, resources } = useAppState();
     const acct = qqList.find((q) => q.uin === config.uin);
 
@@ -1613,7 +1805,12 @@ function AccountWidget({ config }: { config: AccountConfig }) {
             <Card className="workspace-panel h-full overflow-hidden">
                 <CardContent className="flex h-full items-center gap-3 p-4 text-muted-foreground">
                     <Users className="size-5 shrink-0" />
-                    <span className="text-sm">未指定账号 · 编辑时选择</span>
+                    <span className="text-sm">
+                        {t(
+                            '未指定账号 · 编辑时选择',
+                            'No account selected · Choose one in edit mode',
+                        )}
+                    </span>
                 </CardContent>
             </Card>
         );
@@ -1627,7 +1824,7 @@ function AccountWidget({ config }: { config: AccountConfig }) {
                 lines={3}
                 lineHeight={24}
                 barHeight={9}
-                label="账号状态"
+                label={t('账号状态', 'Account status')}
                 className="skeleton-swap-fill"
             >
                 {resources.qqList.ready ? (
@@ -1644,15 +1841,21 @@ function AccountWidget({ config }: { config: AccountConfig }) {
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold">
                                 {resources.qqList.error
-                                    ? '账号状态加载失败'
-                                    : acct?.nickname || '未接入账号'}
+                                    ? t('账号状态加载失败', 'Failed to load account status')
+                                    : acct?.nickname || t('未接入账号', 'Account not connected')}
                             </p>
                             <p className="truncate font-mono text-meta text-muted-foreground tabular-nums">
                                 {config.uin}
                             </p>
                         </div>
                         <span
-                            title={acct ? '在线' : resources.qqList.error ? '状态未知' : '未接入'}
+                            title={
+                                acct
+                                    ? t('在线', 'Online')
+                                    : resources.qqList.error
+                                      ? t('状态未知', 'Status unknown')
+                                      : t('未接入', 'Not connected')
+                            }
                             className={cn(
                                 'size-2 shrink-0 rounded-full',
                                 acct ? 'bg-success' : 'bg-muted-foreground/40',
@@ -1680,10 +1883,17 @@ const ALERT_LEVEL_CLASS: Record<LogLevel, string> = {
 };
 
 function RecentAlertsCard({ config }: { config: AlertsConfig }) {
+    const t = useT();
+    const label = widgetLabel('alerts', t);
     const api = useApi();
     const { formatClock } = useTheme();
     const [alerts, setAlerts] = useState<LogEntry[] | null>(null);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const [loadFailure, setLoadFailure] = useState<{ detail?: string } | null>(null);
+    const loadError =
+        loadFailure &&
+        (loadFailure.detail
+            ? t(loadFailure.detail, `Failed to read runtime activity: ${loadFailure.detail}`)
+            : t('读取运行动态失败', 'Failed to read runtime activity'));
     const { count } = config;
     const levelsKey = config.levels.join(',');
 
@@ -1691,7 +1901,7 @@ function RecentAlertsCard({ config }: { config: AlertsConfig }) {
         const levels = new Set(levelsKey.split(',') as LogLevel[]);
         let active = true;
         setAlerts(null);
-        setLoadError(null);
+        setLoadFailure(null);
         api.logs
             .list(Math.max(200, count * 4))
             .then((list) => {
@@ -1707,7 +1917,7 @@ function RecentAlertsCard({ config }: { config: AlertsConfig }) {
                 }
 
                 console.error('load recent alerts failed', error);
-                setLoadError(error instanceof Error ? error.message : '读取运行动态失败');
+                setLoadFailure(error instanceof Error ? { detail: error.message } : {});
                 setAlerts((previous) => previous ?? []);
             });
         const stop = api.logs.stream({
@@ -1733,15 +1943,18 @@ function RecentAlertsCard({ config }: { config: AlertsConfig }) {
             <CardHeader className="workspace-panel-heading">
                 <div>
                     <CardTitle>
-                        <h4>运行动态</h4>
+                        <h4>{label}</h4>
                     </CardTitle>
                     <CardDescription className="workspace-panel-description">
-                        最近 {count} 条 ·{' '}
-                        {config.levels.map((level) => level.toUpperCase()).join(' / ')}
+                        {t(
+                            `最近 ${count} 条`,
+                            `Last ${count} ${count === 1 ? 'entry' : 'entries'}`,
+                        )}{' '}
+                        · {config.levels.map((level) => level.toUpperCase()).join(' / ')}
                     </CardDescription>
                 </div>
                 <Link to="/logs" className="workspace-inline-link">
-                    查看记录
+                    {t('查看记录', 'View logs')}
                     <ArrowRight className="size-3.5" />
                 </Link>
             </CardHeader>
@@ -1752,7 +1965,7 @@ function RecentAlertsCard({ config }: { config: AlertsConfig }) {
                     lines={5}
                     lineHeight={24}
                     barHeight={9}
-                    label="运行动态"
+                    label={label}
                     className={alerts !== null ? 'skeleton-swap-fluid min-h-[120px]' : ''}
                 >
                     {alerts !== null ? (
@@ -1766,7 +1979,9 @@ function RecentAlertsCard({ config }: { config: AlertsConfig }) {
                         ) : alerts.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-10 text-muted-foreground">
                                 <Activity className="size-8 opacity-40" strokeWidth={1.5} />
-                                <p className="text-sm">暂无匹配的运行记录</p>
+                                <p className="text-sm">
+                                    {t('暂无匹配的运行记录', 'No matching log entries yet')}
+                                </p>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-1 font-mono text-meta">
@@ -1775,7 +1990,10 @@ function RecentAlertsCard({ config }: { config: AlertsConfig }) {
                                         role="alert"
                                         className="mb-1 rounded-lg border border-destructive/30 bg-destructive/10 px-2 py-1.5 font-sans text-xs text-destructive"
                                     >
-                                        {loadError}；当前显示已收到的运行动态。
+                                        {t(
+                                            `${loadError}；当前显示已收到的运行动态。`,
+                                            `${loadError} Showing activity received so far.`,
+                                        )}
                                     </p>
                                 )}
                                 {alerts.map((a) => (

@@ -31,6 +31,9 @@
 .tutorial-simulator-toolbar {
   justify-content: space-between;
   padding: 0.5rem 0.875rem;
+}
+
+.tutorial-simulator[data-tutorial-expanded='true'] .tutorial-simulator-toolbar {
   border-bottom: 1px solid var(--vp-c-divider);
 }
 
@@ -38,6 +41,11 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+.tutorial-simulator-description {
+  color: var(--vp-c-text-2);
+  font-size: 0.85rem;
 }
 
 .tutorial-simulator-actions {
@@ -48,7 +56,7 @@
 .tutorial-simulator-actions button,
 .tutorial-simulator-actions a {
   display: inline-flex;
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   align-items: center;
   padding: 0.25rem 0.55rem;
   border: 1px solid var(--vp-c-divider);
@@ -59,6 +67,22 @@
   cursor: pointer;
 }
 
+.tutorial-simulator-actions .tutorial-simulator-toggle {
+  border-color: var(--vp-button-brand-border);
+  background: var(--vp-button-brand-bg);
+  color: var(--vp-button-brand-text);
+  font-weight: 600;
+}
+
+.tutorial-simulator-actions .tutorial-simulator-toggle:enabled:hover {
+  background: var(--vp-button-brand-hover-bg);
+}
+
+.tutorial-simulator-toggle:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
 .tutorial-simulator-actions :focus-visible {
   outline: 2px solid var(--vp-c-brand-1);
   outline-offset: 3px;
@@ -67,9 +91,20 @@
 .tutorial-simulator iframe {
   display: block;
   width: 100%;
-  height: clamp(34rem, 76vh, 52rem);
+  height: clamp(34rem, 76svh, 48rem);
   border: 0;
   background: var(--vp-c-bg);
+}
+
+/* Use a wider-than-tall canvas in landscape; never rotate or scale the iframe. */
+@media (min-width: 768px) and (orientation: landscape) {
+  .tutorial-simulator-stage {
+    container-type: inline-size;
+  }
+
+  .tutorial-simulator iframe {
+    height: clamp(min(29rem, 80cqw), 62.5cqw, max(29rem, 78svh));
+  }
 }
 
 .vp-doc img[src*='/images/tutorials/'] {

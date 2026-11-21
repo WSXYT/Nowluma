@@ -17,6 +17,14 @@ describe('action feedback error details', () => {
     it('makes an unknown rejection observable', () => {
         expect(actionErrorMessage({ code: 'E_UNKNOWN' })).toBe('未知错误');
     });
+
+    it('localizes the unknown fallback without touching real error messages', () => {
+        const t = (_zh: string, en: string) => en;
+
+        expect(actionErrorMessage({ code: 'E_UNKNOWN' }, t)).toBe('Unknown error');
+        expect(actionErrorMessage(new Error('证书校验失败'), t)).toBe('证书校验失败');
+        expect(actionErrorMessage('保存被拒绝', t)).toBe('保存被拒绝');
+    });
 });
 
 describe('action feedback result publishing', () => {

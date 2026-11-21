@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordVisibilityIcon } from '@/components/ui/password-visibility-icon';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import {
     notificationChannelType,
@@ -159,6 +160,7 @@ interface NotificationChannelDialogProps {
 }
 
 export function NotificationChannelDialog(props: NotificationChannelDialogProps) {
+    const t = useT();
     const { open, onOpenChange, isEdit, initial, otherIds, onSubmit } = props;
     const controlId = useId();
     // Parent unmounts on close, so each open re-seeds via lazy init.
@@ -203,31 +205,46 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
             : !idBlank && !idBad && !idDup && !urlBlank && !urlBad;
 
     const idError = idBlank
-        ? '请填写渠道 ID'
+        ? t('请填写渠道 ID', 'Enter a channel ID')
         : idBad
-          ? '只能用字母 / 数字 / . _ - ，≤64 字符'
+          ? t(
+                '只能用字母 / 数字 / . _ - ，≤64 字符',
+                'Only letters, numbers, . _ - (≤64 characters)',
+            )
           : idDup
-            ? 'ID 与其它渠道重复'
+            ? t('ID 与其它渠道重复', 'ID is already used by another channel')
             : undefined;
-    const urlError = urlBlank ? '请填写 Webhook URL' : urlBad ? '必须是 http(s) 地址' : undefined;
-    const hostError = hostBlank ? '请填写 SMTP 主机' : undefined;
-    const fromError = fromBlank ? '请填写发件人' : fromBad ? '必须是邮箱地址' : undefined;
-    const toError = toBlank ? '请填写收件人' : toBad ? '至少填写一个邮箱' : undefined;
-    const portError = portBad ? '端口 1–65535' : undefined;
+    const urlError = urlBlank
+        ? t('请填写 Webhook URL', 'Enter a webhook URL')
+        : urlBad
+          ? t('必须是 http(s) 地址', 'Must be an http(s) URL')
+          : undefined;
+    const hostError = hostBlank ? t('请填写 SMTP 主机', 'Enter an SMTP host') : undefined;
+    const fromError = fromBlank
+        ? t('请填写发件人', 'Enter a sender')
+        : fromBad
+          ? t('必须是邮箱地址', 'Must be an email address')
+          : undefined;
+    const toError = toBlank
+        ? t('请填写收件人', 'Enter a recipient')
+        : toBad
+          ? t('至少填写一个邮箱', 'Enter at least one email address')
+          : undefined;
+    const portError = portBad ? t('端口 1–65535', 'Port 1–65535') : undefined;
 
     return (
         <Modal
             open={open}
             onClose={() => onOpenChange(false)}
-            title={isEdit ? '编辑渠道' : '新建渠道'}
-            closeLabel="关闭渠道编辑弹窗"
+            title={isEdit ? t('编辑渠道', 'Edit channel') : t('新建渠道', 'New channel')}
+            closeLabel={t('关闭渠道编辑弹窗', 'Close channel editor')}
             maxWidth={576}
             maxHeight="min(86dvh, 780px)"
             className="cp-dialog"
             footer={
                 <>
                     <Button type="button" variant="glass" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('取消', 'Cancel')}
                     </Button>
                     <Button
                         type="submit"
@@ -235,7 +252,7 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                         variant="glass"
                         disabled={!canSave}
                     >
-                        {isEdit ? '保存修改' : '创建渠道'}
+                        {isEdit ? t('保存修改', 'Save changes') : t('创建渠道', 'Create channel')}
                     </Button>
                 </>
             }
@@ -245,19 +262,21 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                 className="flex min-w-0 flex-col gap-3"
                 onSubmit={(event) => {
                     event.preventDefault();
+
                     if (!canSave) {
                         return;
                     }
+
                     onSubmit(toChannel(draft, headerRows));
                     onOpenChange(false);
                 }}
             >
-                <SettingRow label="渠道类型">
+                <SettingRow label={t('渠道类型', 'Channel type')}>
                     <Segmented<NotificationChannelType>
                         value={type}
                         options={[
                             { value: 'webhook', label: 'Webhook' },
-                            { value: 'email', label: '邮件' },
+                            { value: 'email', label: t('邮件', 'Email') },
                         ]}
                         onChange={(value) => setDraft(applyType(draft, value))}
                     />
@@ -265,17 +284,28 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
 
                 <div className="grid gap-3 sm:grid-cols-2">
                     <Field
-                        label="渠道 ID"
+                        label={t('渠道 ID', 'Channel ID')}
                         placeholder="dingtalk"
                         value={draft.id}
                         disabled={isEdit}
-                        hint={isEdit ? '创建后不可更改' : '账号据此勾选；字母/数字/. _ -'}
+                        hint={
+                            isEdit
+                                ? t('创建后不可更改', 'Cannot be changed after creation')
+                                : t(
+                                      '账号据此勾选；字母/数字/. _ -',
+                                      'Accounts select channels by this; letters/numbers/. _ -',
+                                  )
+                        }
                         error={idError}
                         onChange={(v) => patch({ id: v })}
                     />
                     <Field
-                        label="显示名"
-                        placeholder={type === 'email' ? '运维邮箱' : '钉钉群机器人'}
+                        label={t('显示名', 'Display name')}
+                        placeholder={
+                            type === 'email'
+                                ? t('运维邮箱', 'Ops email')
+                                : t('钉钉群机器人', 'DingTalk bot')
+                        }
                         value={draft.name}
                         onChange={(v) => patch({ name: v })}
                     />
@@ -294,7 +324,7 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
 
                         <details className="text-xs">
                             <summary className="min-h-11 cursor-pointer py-3 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                请求头（可选）
+                                {t('请求头（可选）', 'Request headers (optional)')}
                             </summary>
                             <div className="flex flex-wrap items-center justify-end gap-2">
                                 <Button
@@ -306,15 +336,21 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                                     }
                                 >
                                     <Plus className="size-3.5" />
-                                    添加请求头
+                                    {t('添加请求头', 'Add header')}
                                 </Button>
                             </div>
                             <div className="flex flex-col gap-2">
                                 {headerRows.map((row, i) => (
-                                    <div key={i} className="grid min-w-0 grid-cols-[minmax(0,1fr)_44px] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px]">
+                                    <div
+                                        key={i}
+                                        className="grid min-w-0 grid-cols-[minmax(0,1fr)_44px] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px]"
+                                    >
                                         <Input
                                             value={row.name}
-                                            aria-label={`请求头 ${i + 1} 名称`}
+                                            aria-label={t(
+                                                `请求头 ${i + 1} 名称`,
+                                                `Request header ${i + 1} name`,
+                                            )}
                                             placeholder="Authorization"
                                             spellCheck={false}
                                             onChange={(e) =>
@@ -324,7 +360,10 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                                         />
                                         <Input
                                             value={row.value}
-                                            aria-label={`请求头 ${i + 1} 值`}
+                                            aria-label={t(
+                                                `请求头 ${i + 1} 值`,
+                                                `Request header ${i + 1} value`,
+                                            )}
                                             placeholder="Bearer …"
                                             spellCheck={false}
                                             onChange={(e) =>
@@ -336,7 +375,10 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                                             type="button"
                                             variant="ghost"
                                             size="icon-sm"
-                                            aria-label={`删除请求头 ${i + 1}`}
+                                            aria-label={t(
+                                                `删除请求头 ${i + 1}`,
+                                                `Remove request header ${i + 1}`,
+                                            )}
                                             onClick={() => {
                                                 const next = headerRows.filter(
                                                     (_, idx) => idx !== i,
@@ -355,7 +397,10 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                                 ))}
                             </div>
                             <p className="text-xs leading-relaxed text-muted-foreground">
-                                可选，默认 Content-Type 为 application/json。
+                                {t(
+                                    '可选，默认 Content-Type 为 application/json。',
+                                    'Optional; Content-Type defaults to application/json.',
+                                )}
                             </p>
                         </details>
                     </>
@@ -363,14 +408,14 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                     <>
                         <div className="grid gap-3 sm:grid-cols-[1fr_7rem]">
                             <Field
-                                label="SMTP 主机"
+                                label={t('SMTP 主机', 'SMTP host')}
                                 placeholder="smtp.qq.com"
                                 value={draft.smtpHost ?? ''}
                                 error={hostError}
                                 onChange={(v) => patch({ smtpHost: v })}
                             />
                             <Field
-                                label="端口"
+                                label={t('端口', 'Port')}
                                 type="number"
                                 placeholder="465"
                                 value={String(draft.smtpPort ?? 465)}
@@ -394,14 +439,19 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
 
                         <div className="grid gap-3 sm:grid-cols-2">
                             <Field
-                                label="SMTP 用户名"
+                                label={t('SMTP 用户名', 'SMTP username')}
                                 placeholder="bot@qq.com"
                                 value={draft.smtpUser ?? ''}
-                                hint="部分内网中继可不填"
+                                hint={t(
+                                    '部分内网中继可不填',
+                                    'May be blank for some internal relays',
+                                )}
                                 onChange={(v) => patch({ smtpUser: v })}
                             />
                             <div className="flex flex-col gap-1.5">
-                                <Label htmlFor={`${controlId}-smtp-password`}>SMTP 密码</Label>
+                                <Label htmlFor={`${controlId}-smtp-password`}>
+                                    {t('SMTP 密码', 'SMTP password')}
+                                </Label>
                                 <div className="relative">
                                     <Input
                                         id={`${controlId}-smtp-password`}
@@ -409,7 +459,7 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                                         value={draft.smtpPass ?? ''}
                                         autoComplete="new-password"
                                         spellCheck={false}
-                                        placeholder="授权码 / 密码"
+                                        placeholder={t('授权码 / 密码', 'App code / password')}
                                         onChange={(e) => patch({ smtpPass: e.target.value })}
                                         className="pr-12 font-mono text-xs"
                                     />
@@ -419,7 +469,11 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                                         size="icon-sm"
                                         onClick={() => setShowPass((v) => !v)}
                                         className="absolute right-0 top-1/2 size-11 -translate-y-1/2"
-                                        aria-label={showPass ? '隐藏密码' : '显示密码'}
+                                        aria-label={
+                                            showPass
+                                                ? t('隐藏密码', 'Hide password')
+                                                : t('显示密码', 'Show password')
+                                        }
                                         aria-pressed={showPass}
                                     >
                                         <PasswordVisibilityIcon
@@ -431,34 +485,44 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                             </div>
                         </div>
 
-                        <SettingRow label="隐式 TLS" hint="465 开启，587 关闭（STARTTLS）。" layout="inline">
+                        <SettingRow
+                            label={t('隐式 TLS', 'Implicit TLS')}
+                            hint={t(
+                                '465 开启，587 关闭（STARTTLS）。',
+                                'On for 465, off for 587 (STARTTLS).',
+                            )}
+                            layout="inline"
+                        >
                             <ToggleSwitch
                                 value={draft.smtpSecure ?? true}
                                 onChange={(v) => patch({ smtpSecure: v })}
-                                ariaLabel="隐式 TLS"
+                                ariaLabel={t('隐式 TLS', 'Implicit TLS')}
                             />
                         </SettingRow>
 
                         <div className="grid gap-3 sm:grid-cols-2">
                             <Field
-                                label="发件人"
+                                label={t('发件人', 'Sender')}
                                 placeholder="Nowluma <bot@qq.com>"
                                 value={draft.from ?? ''}
                                 error={fromError}
                                 onChange={(v) => patch({ from: v })}
                             />
                             <Field
-                                label="收件人"
+                                label={t('收件人', 'Recipients')}
                                 placeholder="ops@example.com, a@b.com"
                                 value={draft.to ?? ''}
                                 error={toError}
-                                hint="多个地址用逗号或分号分隔"
+                                hint={t(
+                                    '多个地址用逗号或分号分隔',
+                                    'Separate multiple addresses with commas or semicolons',
+                                )}
                                 onChange={(v) => patch({ to: v })}
                             />
                         </div>
 
                         <Field
-                            label="主题模板"
+                            label={t('主题模板', 'Subject template')}
                             placeholder={DEFAULT_EMAIL_SUBJECT}
                             value={draft.subjectTemplate ?? DEFAULT_EMAIL_SUBJECT}
                             onChange={(v) => patch({ subjectTemplate: v })}
@@ -467,7 +531,11 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                 )}
 
                 <div className="flex flex-col gap-1.5">
-                    <Label htmlFor={`${controlId}-body`}>{type === 'email' ? '正文模板' : 'Body 模板'}</Label>
+                    <Label htmlFor={`${controlId}-body`}>
+                        {type === 'email'
+                            ? t('正文模板', 'Body template')
+                            : t('Body 模板', 'Body template')}
+                    </Label>
                     <Textarea
                         id={`${controlId}-body`}
                         value={draft.bodyTemplate}
@@ -478,27 +546,44 @@ export function NotificationChannelDialog(props: NotificationChannelDialogProps)
                     />
                     <details className="text-xs text-muted-foreground">
                         <summary className="min-h-11 cursor-pointer py-3 font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            模板变量
+                            {t('模板变量', 'Template variables')}
                         </summary>
                         <p className="max-w-prose leading-relaxed">
-                        变量：<code className="font-mono">{'{uin}'}</code>{' '}
-                        <code className="font-mono">{'{nickname}'}</code>{' '}
-                        <code className="font-mono">{'{event}'}</code>（offline/online）{' '}
-                        <code className="font-mono">{'{time}'}</code>{' '}
-                        <code className="font-mono">{'{status}'}</code>（Hook 状态）{' '}
-                        <code className="font-mono">{'{pid}'}</code>（进程 ID）{' '}
-                        <code className="font-mono">{'{error}'}</code>（进程错误）
-                        。进程信息为空表示未知。
-                        {type === 'email' ? '正文以 < 开头时按 HTML 发送。' : ''}
+                            {t('变量：', 'Variables: ')}
+                            <code className="font-mono">{'{uin}'}</code>{' '}
+                            <code className="font-mono">{'{nickname}'}</code>{' '}
+                            <code className="font-mono">{'{event}'}</code>
+                            {t('（offline/online）', ' (offline/online)')}{' '}
+                            <code className="font-mono">{'{time}'}</code>{' '}
+                            <code className="font-mono">{'{status}'}</code>
+                            {t('（Hook 状态）', ' (hook status)')}{' '}
+                            <code className="font-mono">{'{pid}'}</code>
+                            {t('（进程 ID）', ' (process ID)')}{' '}
+                            <code className="font-mono">{'{error}'}</code>
+                            {t('（进程错误）', ' (process error)')}
+                            {t('。进程信息为空表示未知。', '. Empty process info means unknown.')}
+                            {type === 'email'
+                                ? t(
+                                      '正文以 < 开头时按 HTML 发送。',
+                                      ' A body starting with < is sent as HTML.',
+                                  )
+                                : ''}
                         </p>
                     </details>
                 </div>
 
-                <SettingRow label="启用" hint="关闭后停止推送，保留配置。" layout="inline">
+                <SettingRow
+                    label={t('启用', 'Enabled')}
+                    hint={t(
+                        '关闭后停止推送，保留配置。',
+                        'Stops delivery while off; settings are kept.',
+                    )}
+                    layout="inline"
+                >
                     <ToggleSwitch
                         value={draft.enabled}
                         onChange={(v) => patch({ enabled: v })}
-                        ariaLabel="启用渠道"
+                        ariaLabel={t('启用渠道', 'Enable channel')}
                     />
                 </SettingRow>
             </form>
@@ -546,9 +631,13 @@ function Field({
                 )}
             />
             {error ? (
-                <p id={`${id}-help`} role="alert" className="text-xs text-destructive">{error}</p>
+                <p id={`${id}-help`} role="alert" className="text-xs text-destructive">
+                    {error}
+                </p>
             ) : hint ? (
-                <p id={`${id}-help`} className="text-xs text-muted-foreground">{hint}</p>
+                <p id={`${id}-help`} className="text-xs text-muted-foreground">
+                    {hint}
+                </p>
             ) : null}
         </div>
     );

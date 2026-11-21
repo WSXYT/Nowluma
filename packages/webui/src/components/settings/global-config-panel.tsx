@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useActionFeedback } from '@/contexts/ActionFeedbackContext';
 import { useApi } from '@/lib/api';
 import { useFlashMessage } from '@/hooks/use-flash-message';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { GlobalSettings } from '@/types';
 
@@ -24,6 +25,7 @@ function isHttpUrl(value: string): boolean {
 }
 
 export function GlobalConfigPanel() {
+    const t = useT();
     const id = useId();
     const api = useApi();
     const { runAction } = useActionFeedback();
@@ -40,7 +42,7 @@ export function GlobalConfigPanel() {
             setConfig(await api.globalConfig.get());
         } catch (error) {
             console.error('load global config failed', error);
-            setMsg({ kind: 'err', text: error instanceof Error ? error.message : '加载全局配置失败' });
+            setMsg(error instanceof Error ? { kind: 'err', text: error.message } : null);
         } finally {
             setLoading(false);
         }
@@ -63,8 +65,8 @@ export function GlobalConfigPanel() {
     const commit = (
         next: GlobalSettings,
         feedback: false | { title: string; successTitle: string } = {
-            title: '正在更新全局配置',
-            successTitle: '全局配置已更新',
+            title: t('正在更新全局配置', 'Updating global configuration'),
+            successTitle: t('全局配置已更新', 'Global configuration updated'),
         },
     ) => {
         setConfig(next);
@@ -86,8 +88,13 @@ export function GlobalConfigPanel() {
                           {
                               title: feedback.title,
                               successTitle: feedback.successTitle,
-                              successDetail: dropped ? '已保存，无效项已忽略' : '配置已同步',
-                              errorTitle: '全局配置更新失败',
+                              successDetail: dropped
+                                  ? t('已保存，无效项已忽略', 'Saved; invalid entries ignored')
+                                  : t('配置已同步', 'Configuration synced'),
+                              errorTitle: t(
+                                  '全局配置更新失败',
+                                  'Global configuration update failed',
+                              ),
                           },
                           () => api.globalConfig.save(next),
                       );
@@ -97,7 +104,12 @@ export function GlobalConfigPanel() {
                         return;
                     }
 
-                    flash('ok', dropped ? '已保存（无效项已忽略）' : '已保存');
+                    flash(
+                        'ok',
+                        dropped
+                            ? t('已保存（无效项已忽略）', 'Saved (invalid entries ignored)')
+                            : t('已保存', 'Saved'),
+                    );
                 })
                 .catch((error) => {
                     if (saveGen.current !== gen) {
@@ -105,7 +117,13 @@ export function GlobalConfigPanel() {
                     }
 
                     console.error('save global config failed', error);
-                    setMsg({ kind: 'err', text: error instanceof Error ? error.message : '保存全局配置失败' });
+                    setMsg({
+                        kind: 'err',
+                        text:
+                            error instanceof Error
+                                ? error.message
+                                : t('保存全局配置失败', 'Failed to save global configuration'),
+                    });
                 });
         }, 500);
     };
@@ -117,15 +135,21 @@ export function GlobalConfigPanel() {
                 lines={6}
                 lineHeight={26}
                 reserve={156}
-                label="全局配置"
+                label={t('全局配置', 'Global configuration')}
                 className={!loading ? 'skeleton-swap-fluid min-h-[156px]' : ''}
             >
                 {!loading ? (
-                    <div role="alert" className="flex flex-wrap items-center gap-3 border-b py-5 text-muted-foreground">
+                    <div
+                        role="alert"
+                        className="flex flex-wrap items-center gap-3 border-b py-5 text-muted-foreground"
+                    >
                         <AlertTriangle className="size-4 shrink-0" />
-                        <p className="text-sm text-destructive">{msg?.text ?? '加载全局配置失败'}</p>
+                        <p className="text-sm text-destructive">
+                            {msg?.text ??
+                                t('加载全局配置失败', 'Failed to load global configuration')}
+                        </p>
                         <Button variant="glass" size="sm" onClick={() => void load()}>
-                            <RefreshCw className="size-3.5" /> 重试
+                            <RefreshCw className="size-3.5" /> {t('重试', 'Retry')}
                         </Button>
                     </div>
                 ) : null}
@@ -143,41 +167,55 @@ export function GlobalConfigPanel() {
             lines={6}
             lineHeight={26}
             reserve={156}
-            label="全局配置"
+            label={t('全局配置', 'Global configuration')}
             className="skeleton-swap-fluid min-h-[156px]"
         >
             <div className="flex min-w-0 flex-col gap-7">
                 <Group
-                    title="rkey 回退"
+                    title={t('rkey 回退', 'rkey fallback')}
                     icon={KeyRound}
-                    description="内核无法取得 rkey 时，按顺序请求回退服务。留空关闭。"
+                    description={t(
+                        '内核无法取得 rkey 时，按顺序请求回退服务。留空关闭。',
+                        'When the kernel cannot obtain an rkey, fallback services are requested in order. Leave empty to disable.',
+                    )}
                 >
                     <div className="flex min-w-0 flex-col gap-3 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                            <Label>rkey 回退服务器</Label>
+                            <Label>{t('rkey 回退服务器', 'rkey fallback servers')}</Label>
                             <Button
                                 variant="glass"
                                 size="sm"
                                 onClick={() => setServers([...servers, ''])}
                             >
-                                <Plus className="size-3.5" /> 添加
+                                <Plus className="size-3.5" /> {t('添加', 'Add')}
                             </Button>
                         </div>
 
                         {servers.length === 0 ? (
                             <p className="py-3 text-xs text-muted-foreground">
-                                回退服务器未启用
+                                {t('回退服务器未启用', 'Fallback servers are not enabled')}
                             </p>
                         ) : (
                             <ol className="flex min-w-0 flex-col divide-y divide-border/60">
                                 {servers.map((url, i) => {
                                     const invalid = url.trim().length > 0 && !isHttpUrl(url.trim());
                                     return (
-                                        <li key={i} className="flex min-w-0 items-center gap-2 py-2">
-                                            <span aria-hidden="true" className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{i + 1}.</span>
+                                        <li
+                                            key={i}
+                                            className="flex min-w-0 items-center gap-2 py-2"
+                                        >
+                                            <span
+                                                aria-hidden="true"
+                                                className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground"
+                                            >
+                                                {i + 1}.
+                                            </span>
                                             <Input
                                                 type="url"
-                                                aria-label={`rkey 回退服务器 ${i + 1}`}
+                                                aria-label={t(
+                                                    `rkey 回退服务器 ${i + 1}`,
+                                                    `rkey fallback server ${i + 1}`,
+                                                )}
                                                 inputMode="url"
                                                 spellCheck={false}
                                                 placeholder="https://your-rkey-server.example/rkeys"
@@ -199,7 +237,10 @@ export function GlobalConfigPanel() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon-sm"
-                                                aria-label={`移除 rkey 回退服务器 ${i + 1}`}
+                                                aria-label={t(
+                                                    `移除 rkey 回退服务器 ${i + 1}`,
+                                                    `Remove rkey fallback server ${i + 1}`,
+                                                )}
                                                 className="shrink-0 text-muted-foreground hover:text-destructive"
                                                 onClick={() =>
                                                     setServers(
@@ -216,28 +257,38 @@ export function GlobalConfigPanel() {
                         )}
                         <details className="text-xs text-muted-foreground">
                             <summary className="min-h-11 cursor-pointer py-3 font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                服务接口要求
+                                {t('服务接口要求', 'Endpoint requirements')}
                             </summary>
                             <p className="max-w-prose leading-relaxed">
-                                建议使用自建服务，仅支持 HTTP(S)。端点需返回{' '}
+                                {t(
+                                    '建议使用自建服务，仅支持 HTTP(S)。端点需返回',
+                                    'A self-hosted service is recommended; only HTTP(S) is supported. The endpoint must return',
+                                )}{' '}
                                 <code className="break-all font-mono">
                                     {'{ group_rkey, private_rkey, expired_time }'}
-                                </code>。
+                                </code>
+                                {t('。', '.')}
                             </p>
                         </details>
                     </div>
                 </Group>
 
-                <Group title="视频上传" icon={Video}>
-                    <SettingRow label="上传连接数" hint="对所有账号的下一次视频上传生效。">
+                <Group title={t('视频上传', 'Video upload')} icon={Video}>
+                    <SettingRow
+                        label={t('上传连接数', 'Upload connections')}
+                        hint={t(
+                            '对所有账号的下一次视频上传生效。',
+                            'Applies to the next video upload for every account.',
+                        )}
+                    >
                         <DropdownSelect
-                            ariaLabel="视频上传连接数"
+                            ariaLabel={t('视频上传连接数', 'Video upload connections')}
                             value={String(config.videoUploadConcurrency ?? 1)}
                             options={[
-                                { value: '1', label: '1 路（默认）' },
-                                { value: '2', label: '2 路' },
-                                { value: '3', label: '3 路' },
-                                { value: '4', label: '4 路' },
+                                { value: '1', label: t('1 路（默认）', '1 (default)') },
+                                { value: '2', label: t('2 路', '2') },
+                                { value: '3', label: t('3 路', '3') },
+                                { value: '4', label: t('4 路', '4') },
                             ]}
                             onChange={(value) =>
                                 commit({ ...config, videoUploadConcurrency: Number(value) })
@@ -246,21 +297,34 @@ export function GlobalConfigPanel() {
                     </SettingRow>
                     <details className="py-3 text-xs text-muted-foreground">
                         <summary className="min-h-11 cursor-pointer py-3 font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            并发策略
+                            {t('并发策略', 'Concurrency policy')}
                         </summary>
                         <p className="max-w-prose leading-relaxed">
-                            小视频使用单连接。多路上传取决于网络和服务器，拥塞时会降低并发。
+                            {t(
+                                '小视频使用单连接。多路上传取决于网络和服务器，拥塞时会降低并发。',
+                                'Small videos use a single connection. Multi-connection uploads depend on the network and server; concurrency drops under congestion.',
+                            )}
                         </p>
                     </details>
                 </Group>
-                <Group title="音乐分享" icon={Music} description="签名服务对所有账号生效。">
-                    <SettingRow label="签名服务地址" hint="留空使用内置服务。">
+                <Group
+                    title={t('音乐分享', 'Music sharing')}
+                    icon={Music}
+                    description={t(
+                        '签名服务对所有账号生效。',
+                        'The signing service applies to every account.',
+                    )}
+                >
+                    <SettingRow
+                        label={t('签名服务地址', 'Signing service URL')}
+                        hint={t('留空使用内置服务。', 'Leave blank to use the built-in service.')}
+                    >
                         <Input
                             type="url"
                             inputMode="url"
                             spellCheck={false}
                             id={`${id}-music`}
-                            aria-label="签名服务地址"
+                            aria-label={t('签名服务地址', 'Signing service URL')}
                             placeholder={MUSIC_SIGN_DEFAULT}
                             value={config.musicSignUrl}
                             aria-invalid={

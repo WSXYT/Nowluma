@@ -1,16 +1,16 @@
 // ApiBrowser — an embedded, searchable reference for every declarative action
 // (~520), grouped by category, surfaced straight from /api/debug/actions (the
 // same docs the tester uses). Each row expands to params / returns / invariants
-// and a 试一下 button that prefills the tester. No hand-maintained docs — this
+// and a Try action button that prefills the tester. No hand-maintained docs — this
 // is the live catalog.
 import { useId, useMemo, useState } from 'react';
+import { useT } from '@/i18n';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
 import { BookOpen, ChevronRight, PlayCircle, Search, ShieldCheck, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { GlassSurface } from '@/components/ui/glass-material';
 import type { DebugActionDoc } from '@/types';
-
 
 function ActionRow({
     doc,
@@ -21,6 +21,7 @@ function ActionRow({
     onTry: (name: string) => void;
     tryDisabled: boolean;
 }) {
+    const t = useT();
     const [open, setOpen] = useState(false);
     const id = useId();
     const reduced = useReducedMotionConfig();
@@ -47,16 +48,19 @@ function ActionRow({
                         {doc.readOnly ? (
                             <ShieldCheck
                                 className="size-3.5 shrink-0 text-success"
-                                aria-label="只读"
+                                aria-label={t('只读', 'Read-only')}
                             />
                         ) : (
                             <span
                                 className="size-1.5 shrink-0 rounded-full bg-warning"
-                                title="有副作用"
+                                title={t('有副作用', 'Has side effects')}
                             />
                         )}
                         {doc.stream && (
-                            <Zap className="size-3.5 shrink-0 text-primary" aria-label="流式" />
+                            <Zap
+                                className="size-3.5 shrink-0 text-primary"
+                                aria-label={t('流式', 'Streaming')}
+                            />
                         )}
                     </span>
                     <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
@@ -78,7 +82,7 @@ function ActionRow({
                             <div className="flex min-w-0 flex-col gap-3 border-t border-border/50 py-4 text-[13px]">
                                 {doc.aliases.length > 0 && (
                                     <p className="text-xs text-muted-foreground">
-                                        别名:
+                                        {t('别名:', 'Aliases: ')}
                                         {doc.aliases.map((a) => (
                                             <code key={a} className="ml-1 font-mono">
                                                 {a}
@@ -89,13 +93,18 @@ function ActionRow({
                                 {doc.params.length > 0 ? (
                                     <div className="min-w-0">
                                         <table className="cp-api-table">
-                                            <caption className="sr-only">{doc.name} 参数</caption>
+                                            <caption className="sr-only">
+                                                {t(
+                                                    `${doc.name} 参数`,
+                                                    `Parameters for ${doc.name}`,
+                                                )}
+                                            </caption>
                                             <thead>
                                                 <tr>
-                                                    <th scope="col">参数</th>
-                                                    <th scope="col">类型</th>
-                                                    <th scope="col">必填</th>
-                                                    <th scope="col">说明</th>
+                                                    <th scope="col">{t('参数', 'Parameter')}</th>
+                                                    <th scope="col">{t('类型', 'Type')}</th>
+                                                    <th scope="col">{t('必填', 'Required')}</th>
+                                                    <th scope="col">{t('说明', 'Description')}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -104,10 +113,16 @@ function ActionRow({
                                                         key={p.name}
                                                         className="border-t border-border/40"
                                                     >
-                                                        <td data-label="参数" className="font-mono">
+                                                        <td
+                                                            data-label={t('参数', 'Parameter')}
+                                                            className="font-mono"
+                                                        >
                                                             {p.name}
                                                         </td>
-                                                        <td data-label="类型" className="font-mono text-muted-foreground">
+                                                        <td
+                                                            data-label={t('类型', 'Type')}
+                                                            className="font-mono text-muted-foreground"
+                                                        >
                                                             {p.values
                                                                 ? p.values.map(String).join(' | ')
                                                                 : p.type}
@@ -117,13 +132,21 @@ function ActionRow({
                                                                 </span>
                                                             ) : null}
                                                         </td>
-                                                        <td data-label="必填">
-                                                            {p.required ? '是' : '否'}
+                                                        <td data-label={t('必填', 'Required')}>
+                                                            {p.required
+                                                                ? t('是', 'Yes')
+                                                                : t('否', 'No')}
                                                         </td>
-                                                        <td data-label="说明" className="text-muted-foreground">
+                                                        <td
+                                                            data-label={t('说明', 'Description')}
+                                                            className="text-muted-foreground"
+                                                        >
                                                             {p.desc ?? ''}
                                                             {p.default !== undefined
-                                                                ? ` (默认 ${JSON.stringify(p.default)})`
+                                                                ? t(
+                                                                      ` (默认 ${JSON.stringify(p.default)})`,
+                                                                      ` (default: ${JSON.stringify(p.default)})`,
+                                                                  )
                                                                 : ''}
                                                         </td>
                                                     </tr>
@@ -132,16 +155,22 @@ function ActionRow({
                                         </table>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-muted-foreground">无参数</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t('无参数', 'No parameters')}
+                                    </p>
                                 )}
                                 {doc.invariants && doc.invariants.length > 0 && (
                                     <p className="text-xs text-muted-foreground">
-                                        约束:{doc.invariants.join('；')}
+                                        {t(
+                                            `约束:${doc.invariants.join('；')}`,
+                                            `Constraints: ${doc.invariants.join('; ')}`,
+                                        )}
                                     </p>
                                 )}
                                 {doc.returns && (
                                     <p className="text-xs text-muted-foreground">
-                                        返回:<code className="font-mono">{doc.returns}</code>
+                                        {t('返回:', 'Returns: ')}
+                                        <code className="font-mono">{doc.returns}</code>
                                     </p>
                                 )}
                                 <div>
@@ -151,7 +180,8 @@ function ActionRow({
                                         onClick={() => onTry(doc.name)}
                                         disabled={tryDisabled}
                                     >
-                                        <PlayCircle className="h-3.5 w-3.5" /> 试一下
+                                        <PlayCircle className="h-3.5 w-3.5" />{' '}
+                                        {t('试一下', 'Try action')}
                                     </Button>
                                 </div>
                             </div>
@@ -173,6 +203,7 @@ export function ApiBrowser({
     tryDisabled?: boolean;
 }) {
     const reduced = useReducedMotionConfig();
+    const t = useT();
     const [query, setQuery] = useState('');
     const [cat, setCat] = useState<string>('');
 
@@ -208,17 +239,20 @@ export function ApiBrowser({
     }, [docs, query, cat]);
 
     const grouped = useMemo(() => {
-        const m = new Map<string, DebugActionDoc[]>();
+        const m = new Map<string | undefined, DebugActionDoc[]>();
 
         for (const d of filtered) {
-            const k = d.category ?? '其他';
+            const k = d.category;
             const arr = m.get(k) ?? [];
             arr.push(d);
             m.set(k, arr);
         }
 
-        return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    }, [filtered]);
+        const fallback = t('其他', 'Other');
+        return Array.from(m.entries()).sort((a, b) =>
+            (a[0] ?? fallback).localeCompare(b[0] ?? fallback),
+        );
+    }, [filtered, t]);
 
     return (
         <motion.section
@@ -229,7 +263,9 @@ export function ApiBrowser({
         >
             <div className="flex items-center gap-2.5">
                 <BookOpen className="size-4 text-muted-foreground" />
-                <h2 className="text-[15px] font-semibold tracking-tight">接口库</h2>
+                <h2 className="text-[15px] font-semibold tracking-tight">
+                    {t('接口库', 'API reference')}
+                </h2>
                 <span className="text-xs text-muted-foreground tabular-nums">
                     {filtered.length}/{docs.length}
                 </span>
@@ -239,15 +275,25 @@ export function ApiBrowser({
                 <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <input
                     type="search"
-                    aria-label="搜索接口名、摘要或别名"
+                    aria-label={t(
+                        '搜索接口名、摘要或别名',
+                        'Search action names, summaries, or aliases',
+                    )}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="搜索接口名、摘要或别名…"
+                    placeholder={t(
+                        '搜索接口名、摘要或别名…',
+                        'Search action names, summaries, or aliases…',
+                    )}
                     className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 />
             </GlassSurface>
 
-            <div role="group" aria-label="接口分类" className="flex flex-wrap gap-1.5">
+            <div
+                role="group"
+                aria-label={t('接口分类', 'Action categories')}
+                className="flex flex-wrap gap-1.5"
+            >
                 <button
                     type="button"
                     onClick={() => setCat('')}
@@ -257,7 +303,7 @@ export function ApiBrowser({
                         cat === '' ? 'text-foreground' : 'text-muted-foreground',
                     )}
                 >
-                    全部
+                    {t('全部', 'All')}
                 </button>
                 {categories.map((c) => (
                     <button
@@ -278,18 +324,26 @@ export function ApiBrowser({
             <div className="flex min-w-0 flex-col gap-6">
                 {grouped.length === 0 ? (
                     <p className="py-12 text-sm text-muted-foreground">
-                        没有匹配的接口
+                        {t('没有匹配的接口', 'No matching actions')}
                     </p>
                 ) : (
                     grouped.map(([category, items]) => (
-                        <div key={category} className="flex flex-col gap-1.5">
+                        <div
+                            key={category === undefined ? 'uncategorized' : `category:${category}`}
+                            className="flex flex-col gap-1.5"
+                        >
                             <h3 className="px-1 text-xs font-semibold text-muted-foreground">
-                                {category}{' '}
+                                {category ?? t('其他', 'Other')}{' '}
                                 <span className="font-normal tabular-nums">{items.length}</span>
                             </h3>
                             <div className="min-w-0 border-y border-border">
                                 {items.map((d) => (
-                                    <ActionRow key={d.name} doc={d} onTry={onTry} tryDisabled={tryDisabled} />
+                                    <ActionRow
+                                        key={d.name}
+                                        doc={d}
+                                        onTry={onTry}
+                                        tryDisabled={tryDisabled}
+                                    />
                                 ))}
                             </div>
                         </div>

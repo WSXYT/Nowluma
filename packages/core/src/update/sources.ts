@@ -1,11 +1,20 @@
 import { APP_VERSION } from '@nowluma/common/version';
+import { assetName } from '@nowluma/common/release-assets';
 import { readRuntimeConfig, updateRuntimeConfig } from '@nowluma/common/runtime';
 import {
     normalizeUpdateSourceConfig,
     type UpdateSourceConfig,
 } from '@nowluma/common/update-source';
 
-export const RELEASE_ROOT = 'https://github.com/WSXYT/Nowluma/releases';
+export const GITHUB_ORIGIN = 'https://github.com';
+export const RELEASE_PATH = '/NowLuma/NowLuma/releases';
+export const RELEASE_ROOT = `${GITHUB_ORIGIN}${RELEASE_PATH}`;
+export const RELEASE_API_ROOT = `https://api.github.com/repos${RELEASE_PATH}`;
+
+export function releaseDownloadPath(version: string, name: string): string {
+    return `${RELEASE_PATH}/download/v${version}/${name}`;
+}
+
 export const DEFAULT_UPDATE_SOURCE: UpdateSourceConfig = {
     mode: 'auto',
     mirror: '',
@@ -57,9 +66,9 @@ export async function testUpdateSources(value: unknown): Promise<MirrorProbeResu
     const mirrors = [
         ...new Set(['', ...config.mirrors, ...(config.mirror ? [config.mirror] : [])]),
     ];
-    const target = process.platform === 'win32' ? 'win-x64' : `linux-${process.arch}`;
-    const extension = process.platform === 'win32' ? 'zip' : 'tar.gz';
-    const probeUrl = `${RELEASE_ROOT}/download/v${APP_VERSION}/Nowluma-v${APP_VERSION}-${target}-lite.${extension}`;
+    const windows = process.platform === 'win32';
+    const target = windows ? 'win32-x64' : `linux-${process.arch}`;
+    const probeUrl = `${GITHUB_ORIGIN}${releaseDownloadPath(APP_VERSION, assetName(APP_VERSION, target))}`;
     const results = await Promise.all(
         mirrors.map(async (mirror): Promise<MirrorProbeResult> => {
             const start = performance.now();
@@ -98,7 +107,7 @@ export async function testUpdateSources(value: unknown): Promise<MirrorProbeResu
                     reader.releaseLock();
                 }
 
-                const signature = extension === 'zip' ? [0x50, 0x4b, 0x03, 0x04] : [0x1f, 0x8b];
+                const signature = windows ? [0x50, 0x4b, 0x03, 0x04] : [0x1f, 0x8b];
 
                 if (!signature.every((byte, index) => prefix[index] === byte)) {
                     throw new Error('返回内容不是有效的更新包');

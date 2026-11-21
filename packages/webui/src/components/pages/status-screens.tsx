@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Compass, Home, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 
 type Tone = 'primary' | 'destructive';
 
@@ -54,16 +55,20 @@ function StatusShell({
 
 /** Rendered by the router for any unmatched path. */
 export function NotFoundPage() {
+    const t = useT();
     return (
         <StatusShell
             tone="primary"
             icon={<Compass className="size-7 text-primary" strokeWidth={1.75} />}
             code="404"
-            title="页面不存在"
-            description="你访问的地址没有对应的页面，可能链接已失效或输入有误。"
+            title={t('页面不存在', 'Page not found')}
+            description={t(
+                '你访问的地址没有对应的页面，可能链接已失效或输入有误。',
+                'There is no page at the address you visited. The link may be outdated or mistyped.',
+            )}
         >
             <Button onClick={() => window.location.assign('/')}>
-                <Home className="size-4" /> 返回首页
+                <Home className="size-4" /> {t('返回首页', 'Back to home')}
             </Button>
         </StatusShell>
     );
@@ -71,21 +76,25 @@ export function NotFoundPage() {
 
 /** Rendered by the router when a route component throws while rendering. */
 export function ErrorPage({ error, reset }: { error?: Error; reset?: () => void }) {
+    const t = useT();
     const message = error?.message?.trim();
     return (
         <StatusShell
             tone="destructive"
             icon={<AlertTriangle className="size-7 text-destructive" strokeWidth={1.75} />}
-            title="页面出错了"
-            description="渲染该页面时发生了意外错误。可以重试，或返回首页继续操作。"
+            title={t('页面出错了', 'Something went wrong')}
+            description={t(
+                '渲染该页面时发生了意外错误。可以重试，或返回首页继续操作。',
+                'An unexpected error occurred while rendering this page. Retry, or return home to continue.',
+            )}
         >
             {reset && (
                 <Button variant="outline" onClick={reset}>
-                    <RotateCw className="size-4" /> 重试
+                    <RotateCw className="size-4" /> {t('重试', 'Retry')}
                 </Button>
             )}
             <Button onClick={() => window.location.assign('/')}>
-                <Home className="size-4" /> 返回首页
+                <Home className="size-4" /> {t('返回首页', 'Back to home')}
             </Button>
             {message && (
                 <pre className="mt-3 max-h-32 w-full overflow-auto rounded-md border bg-muted/40 px-3 py-2 text-left text-meta leading-relaxed text-muted-foreground whitespace-pre-wrap">

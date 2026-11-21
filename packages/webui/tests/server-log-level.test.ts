@@ -1,13 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
-import { selectServerLogLevel, TRACE_CONFIRMATION_WARNINGS } from '../src/lib/server-log-level';
+import { selectServerLogLevel, traceConfirmationWarnings } from '../src/lib/server-log-level';
 
 describe('selectServerLogLevel', () => {
     it('keeps every required warning in the TRACE confirmation', () => {
-        expect(TRACE_CONFIRMATION_WARNINGS).toEqual([
+        expect(traceConfirmationWarnings()).toEqual([
             'TRACE 会产生非常大量的数据。',
             'TRACE 可能包含未经脱敏的隐私数据和凭据。',
             'TRACE 不适合长时间开启。',
             'TRACE 仅用于小规模问题复现和 bug 反馈。',
+        ]);
+        expect(traceConfirmationWarnings((_, en) => en)).toEqual([
+            'TRACE produces a very large volume of data.',
+            'TRACE may contain unredacted private data and credentials.',
+            'Do not leave TRACE enabled for long periods.',
+            'Use TRACE only for brief reproductions and bug reports.',
         ]);
     });
 

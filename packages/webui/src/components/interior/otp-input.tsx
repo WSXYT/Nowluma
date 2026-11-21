@@ -14,6 +14,7 @@ import {
     type Ref,
 } from 'react';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
+import { useT } from '@/i18n';
 
 const CROSSFADE = { type: 'spring', stiffness: 260, damping: 34, mass: 0.8 } as const;
 const EASE = [0.23, 1, 0.32, 1] as const;
@@ -356,7 +357,7 @@ export function OtpInput({
     errorMessage = '',
     successMessage = '',
     hint = '',
-    label = 'Verification code',
+    label,
     groupEvery = 3,
     groupSeparator = false,
     disabled = false,
@@ -366,7 +367,9 @@ export function OtpInput({
     ref,
 }: OtpInputProps) {
     const reduced = useReducedMotionConfig();
+    const t = useT();
     const statusId = useId();
+    const labelText = label ?? t('验证码', 'Verification code');
 
     const { chars, focusedIndex, getCellProps, focusAt, clear } = useOtpInput({
         length,
@@ -423,7 +426,7 @@ export function OtpInput({
         <div className={`flex w-full flex-col ${className}`}>
             <motion.div
                 role="group"
-                aria-label={label}
+                aria-label={labelText}
                 className="relative flex w-full gap-2.5"
                 initial={false}
                 variants={{ idle: { x: 0 }, wrong: { x: [0, -5, 4, -3, 0] } }}
@@ -450,7 +453,10 @@ export function OtpInput({
                             >
                                 <input
                                     {...getCellProps(i)}
-                                    aria-label={`${label}, character ${i + 1} of ${length}`}
+                                    aria-label={t(
+                                        `${labelText}，第 ${i + 1} 位，共 ${length} 位`,
+                                        `${labelText}, character ${i + 1} of ${length}`,
+                                    )}
                                     aria-invalid={error || undefined}
                                     aria-describedby={hasStatus ? statusId : undefined}
                                     className={`size-full rounded-xl border-2 text-center text-xl text-transparent caret-transparent outline-none transition-[background-color,border-color,box-shadow] duration-150 selection:bg-transparent focus-visible:outline-none disabled:opacity-50 ${

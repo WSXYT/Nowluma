@@ -6,6 +6,7 @@ import 'gridstack/dist/gridstack.css';
 import { GRID_CELL_HEIGHT, GRID_MARGIN, minSizeOf, widgetLabel } from '@/lib/dashboard-layout';
 import { cn } from '@/lib/utils';
 import type { UiLayoutItem } from '@/types';
+import { useT } from '@/i18n';
 
 export interface GridCoord {
     id: string;
@@ -66,6 +67,7 @@ export function DashboardGrid({
     removableSelector,
     onAdd,
 }: DashboardGridProps) {
+    const t = useT();
     const elRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<GridStack | null>(null);
     const [contentEls, setContentEls] = useState<Record<string, HTMLElement>>({});
@@ -295,15 +297,26 @@ export function DashboardGrid({
                     return null;
                 }
 
+                const label = editing ? widgetLabel(b.id, t) : '';
+
                 return createPortal(
                     <div className="relative h-full w-full">
                         {editing && (
                             <>
                                 <button
                                     type="button"
-                                    title="拖动或方向键移动 · Shift+方向键缩放 · Delete隐藏到卡片库"
-                                    aria-label={`调整${widgetLabel(b.id)}卡片布局`}
-                                    aria-description="方向键移动；Shift+方向键缩放；Delete隐藏。"
+                                    title={t(
+                                        '拖动或方向键移动 · Shift+方向键缩放 · Delete隐藏到卡片库',
+                                        'Drag or use arrow keys to move · Shift+arrow keys to resize · Delete to hide',
+                                    )}
+                                    aria-label={t(
+                                        `调整${label}卡片布局`,
+                                        `Adjust the ${label} card layout`,
+                                    )}
+                                    aria-description={t(
+                                        '方向键移动；Shift+方向键缩放；Delete隐藏。',
+                                        'Arrow keys move, Shift+arrow keys resize, and Delete hides the card.',
+                                    )}
                                     data-widget-id={b.id}
                                     onKeyDown={(event) => onHandleKeyDown(event, b.id)}
                                     className="grid-drag-handle pointer-events-auto absolute left-1.5 top-1.5 z-20 inline-flex size-11 items-center justify-center rounded-md bg-background/80 text-muted-foreground touch-none outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
@@ -314,8 +327,11 @@ export function DashboardGrid({
                                     <button
                                         type="button"
                                         onClick={() => onConfigOpen(b.id)}
-                                        title={`${widgetLabel(b.id)} · 卡片设置`}
-                                        aria-label={`设置${widgetLabel(b.id)}卡片`}
+                                        title={t(`${label} · 卡片设置`, `${label} · Card settings`)}
+                                        aria-label={t(
+                                            `设置${label}卡片`,
+                                            `Configure the ${label} card`,
+                                        )}
                                         className="pointer-events-auto absolute right-1.5 top-1.5 z-20 inline-flex size-11 items-center justify-center rounded-md bg-background/80 text-muted-foreground transition-[color,box-shadow] duration-150 ease-out outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 cursor-pointer"
                                     >
                                         <Settings2 className="size-3.5" />

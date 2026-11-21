@@ -25,7 +25,7 @@ This page states only what can currently be confirmed. Plans, successful builds 
 | Display effects             | Implemented                                                                       | Motion and glass quality are manual; no FPS or power claims                                                        |
 | QQ desktop entry            | Decided by runtime server capability                                              | Shown only on a Linux server with the same-origin gateway; not on Windows native or old servers                    |
 | Auto-attach                 | Implemented                                                                       | Local QQ login, recognized real UIN and a current-risk-version acknowledgement; manual unload does not auto-resume |
-| Documentation and tutorials | VitePress bilingual chapters with inline guided lessons                           | Check the [public site](https://wsxyt.github.io/Nowluma/) and its matching Pages deployment                        |
+| Documentation and tutorials | VitePress bilingual chapters with on-demand guided lessons                          | Check the [public site](https://nowluma.github.io/NowLuma/) and its matching Pages deployment                     |
 | Real QQ login/delivery      | Needs your account                                                                | CI does not prove QR-free login, delivery or long-term stability                                                   |
 | Releases and signing        | x64 RC, checksums and versioned GHCR image are published; Windows exe is unsigned | Only claim assets actually present on the release page; provenance is not account acceptance                       |
 
@@ -49,7 +49,7 @@ The compatibility kernel uses bundled native components and carries account, dat
 
 Platform support does not guarantee an account works; QQ server sessions, permissions, desktop environment and network all affect the result.
 
-Each delivery follows its [source CI](https://github.com/WSXYT/Nowluma/actions) and [release artifacts](https://github.com/WSXYT/Nowluma/releases). Historical success does not replace current account-login, desktop or delivery verification.
+Each delivery follows its [source CI](https://github.com/NowLuma/NowLuma/actions) and [release artifacts](https://github.com/NowLuma/NowLuma/releases). Historical success does not replace current account-login, desktop or delivery verification.
 
 ## Releases and updates
 
@@ -64,8 +64,8 @@ A successful build, provenance attestation or checksum proves origin and integri
 
 ## Documentation site
 
-- 18 chapters per language, static build with the `/Nowluma/` base path and relative `/demo/`.
-- The address is `https://wsxyt.github.io/Nowluma/`; whether it is published depends on the maintainer's deployment. This documentation does not fabricate a live status.
+- 18 chapters per language, static build with the `/NowLuma/` base path and relative `/demo/`.
+- The [public documentation](https://nowluma.github.io/NowLuma/) is served by the project’s Pages deployment.
 - `/demo/` exists only when the build includes the simulator and uses simulated data; it does not connect to QQ.
 
 ## Performance and appearance

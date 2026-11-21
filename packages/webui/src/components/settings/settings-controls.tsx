@@ -2,6 +2,7 @@ import { createContext, useContext, useId, type ComponentProps, type ReactNode }
 import type { Sun } from 'lucide-react';
 import { SegmentedControl } from '@/components/interior/segmented-control';
 import { Slider } from '@/components/ui/slider';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 // ─────────────── shared little controls ───────────────
@@ -28,6 +29,7 @@ export function Segmented<T extends string | number>({
     onChange: (v: T) => void;
     disabled?: boolean;
 }) {
+    const t = useT();
     const rowLabel = useContext(RowLabelContext);
     return (
         <div
@@ -37,7 +39,7 @@ export function Segmented<T extends string | number>({
         >
             <SegmentedControl
                 className="min-w-max"
-                label={rowLabel?.label ?? '选项'}
+                label={rowLabel?.label ?? t('选项', 'Options')}
                 value={String(value)}
                 options={options.map((option) => ({
                     value: String(option.value),
@@ -79,9 +81,7 @@ export function SettingRow({
             <p id={labelId} className="text-sm font-medium">
                 {label}
             </p>
-            {hint && (
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>
-            )}
+            {hint && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>}
         </div>
     );
     const control = (

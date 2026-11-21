@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SkeletonSwap } from '@/components/interior/skeleton-swap';
-import { TOPBAR_CATALOGUE } from '@/components/layout/top-bar';
+import { localizeTopbarItem, TOPBAR_CATALOGUE } from '@/components/layout/top-bar';
 import { BackgroundCard } from '@/components/settings/background-card';
 import { DisplayEffectsControls } from '@/components/display-effects';
 import {
@@ -43,37 +43,9 @@ import {
     type SidebarStyle,
     type ThemeMode,
 } from '@/contexts/ThemeContext';
+import { useT } from '@/i18n';
 import { useDesktopSidebar } from '@/hooks/use-media-query';
 import { cn, toColorInputValue } from '@/lib/utils';
-
-// ─────────────── 外观 ───────────────
-
-const MODE_OPTIONS: Opt<ThemeMode>[] = [
-    { value: 'light', label: '浅色', icon: Sun },
-    { value: 'dark', label: '深色', icon: Moon },
-    { value: 'system', label: '跟随系统', icon: Monitor },
-];
-
-const DARK_INTENSITY_OPTIONS: Opt<DarkIntensity>[] = [
-    { value: 'soft', label: '柔和' },
-    { value: 'black', label: '纯黑 (OLED)' },
-];
-
-const SCOPE_OPTIONS: Opt<AccentScope>[] = [
-    { value: 'global', label: '全局' },
-    { value: 'sidebar', label: '仅导航' },
-];
-
-const SIDEBAR_STYLE_OPTIONS: Opt<SidebarStyle>[] = [
-    { value: 'follow', label: '跟随背景' },
-    { value: 'panel', label: '浅色面板' },
-    { value: 'accent', label: '强调色' },
-];
-
-const DENSITY_OPTIONS: Opt<Density>[] = [
-    { value: 'cozy', label: '舒适' },
-    { value: 'compact', label: '紧凑' },
-];
 
 // ── a11y: one-time low-contrast advisory for a custom accent ──
 // Pure-advisory per the plan: never blocks, never a persistent banner, and
@@ -126,6 +98,7 @@ function contrastRatio(a: string, b: string): number | null {
 
 // Optional tools in the top bar and more-actions menu retain their saved visibility.
 function TopbarPanel() {
+    const t = useT();
     const { topbarItems, setTopbarItems } = useLayout();
     const reconciled = reconcileLayoutItems(
         topbarItems,
@@ -136,24 +109,54 @@ function TopbarPanel() {
         setTopbarItems(reconciled.map((i) => (i.id === id ? { ...i, visible: !i.visible } : i)));
     return (
         <Group
-            title="顶栏工具"
+            title={t('顶栏工具', 'Top bar tools')}
             icon={PanelTop}
-            description="工作区管理与更多操作入口始终保留。"
+            description={t(
+                '工作区管理与更多操作入口始终保留。',
+                'Workspace management and More actions are always available.',
+            )}
         >
-            {TOPBAR_CATALOGUE.map((t) => (
-                <SettingRow key={t.id} label={t.label} layout="inline">
-                    <ToggleSwitch
-                        value={shown.get(t.id) ?? true}
-                        onChange={() => toggle(t.id)}
-                        ariaLabel={t.label}
-                    />
-                </SettingRow>
-            ))}
+            {TOPBAR_CATALOGUE.map((item) => {
+                const { id, label } = localizeTopbarItem(item, t);
+                return (
+                    <SettingRow key={id} label={label} layout="inline">
+                        <ToggleSwitch
+                            value={shown.get(id) ?? true}
+                            onChange={() => toggle(id)}
+                            ariaLabel={label}
+                        />
+                    </SettingRow>
+                );
+            })}
         </Group>
     );
 }
 
 export function AppearancePanel() {
+    const t = useT();
+    const modes: Opt<ThemeMode>[] = [
+        { value: 'light', label: t('浅色', 'Light'), icon: Sun },
+        { value: 'dark', label: t('深色', 'Dark'), icon: Moon },
+        { value: 'system', label: t('跟随系统', 'System'), icon: Monitor },
+    ];
+    const darkIntensities: Opt<DarkIntensity>[] = [
+        { value: 'soft', label: t('柔和', 'Soft') },
+        { value: 'black', label: t('纯黑 (OLED)', 'Pure black (OLED)') },
+    ];
+    const accentScopes: Opt<AccentScope>[] = [
+        { value: 'global', label: t('全局', 'Global') },
+        { value: 'sidebar', label: t('仅导航', 'Navigation only') },
+    ];
+    const sidebarStyles: Opt<SidebarStyle>[] = [
+        { value: 'follow', label: t('跟随背景', 'Match background') },
+        { value: 'panel', label: t('浅色面板', 'Light panel') },
+        { value: 'accent', label: t('强调色', 'Accent color') },
+    ];
+    const densities: Opt<Density>[] = [
+        { value: 'cozy', label: t('舒适', 'Comfortable') },
+        { value: 'compact', label: t('紧凑', 'Compact') },
+    ];
+
     const isDesktop = useDesktopSidebar();
     const {
         savedAppearance: appearance,
@@ -206,44 +209,84 @@ export function AppearancePanel() {
         <div className="flex min-w-0 flex-col gap-7">
             {managedBy && (
                 <p className="text-sm leading-relaxed text-muted-foreground" role="status">
-                    外观由{managedBy}管理；个人配色、字体与背景已保留。动效、材质、缩放和无障碍仍可调整。
+                    {t(
+                        `外观由${managedBy}管理；个人配色、字体与背景已保留。动效、材质、缩放和无障碍仍可调整。`,
+                        `${managedBy} manages the appearance. Your palette, fonts, and background are preserved. You can still adjust motion, materials, scaling, and accessibility.`,
+                    )}
                 </p>
             )}
-            <fieldset disabled={!!managedBy} className="contents" aria-label="主题、配色与背景">
+            <fieldset
+                disabled={!!managedBy}
+                className="contents"
+                aria-label={t('主题、配色与背景', 'Theme, colors, and background')}
+            >
                 <Group
-                    title="主题"
+                    title={t('主题', 'Theme')}
                     icon={Sun}
-                    description={managedBy ? '以下为已保留的个人设置。' : '改动立即应用并同步到服务器。'}
+                    description={
+                        managedBy
+                            ? t(
+                                  '以下为已保留的个人设置。',
+                                  'These are your saved personal settings.',
+                              )
+                            : t(
+                                  '改动立即应用并同步到服务器。',
+                                  'Changes apply immediately and sync to the server.',
+                              )
+                    }
                 >
                     <SettingRow
-                        label="配色方案"
-                        hint="默认配色跟随显示模式；Catppuccin 自带明暗。"
+                        label={t('配色方案', 'Color palette')}
+                        hint={t(
+                            '默认配色跟随显示模式；Catppuccin 自带明暗。',
+                            'The default palette follows the display mode. Catppuccin palettes set their own mode.',
+                        )}
                         layout="stack"
                     >
-                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="配色方案">
+                        <div
+                            className="flex flex-wrap gap-2"
+                            role="radiogroup"
+                            aria-label={t('配色方案', 'Color palette')}
+                        >
                             {PALETTE_OPTIONS.map((p) => {
                                 const active = a.palette === p.id;
+                                const label = p.labelEn ? t(p.label, p.labelEn) : p.label;
                                 return (
                                     <button
                                         key={p.id}
                                         type="button"
                                         role="radio"
                                         aria-checked={active}
-                                        aria-label={p.label}
+                                        aria-label={label}
                                         onClick={() => setAppearance({ palette: p.id })}
                                         className={cn(
                                             'inline-flex min-h-11 items-center gap-2 rounded-[4px] border px-3 text-xs font-medium transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                            active ? 'border-foreground' : 'border-border hover:bg-muted/40',
+                                            active
+                                                ? 'border-foreground'
+                                                : 'border-border hover:bg-muted/40',
                                         )}
                                     >
-                                        <span aria-hidden="true" className="flex overflow-hidden rounded-[2px] border border-border/60">
-                                            <span className="size-3.5" style={{ backgroundColor: p.preview.bg }} />
-                                            <span className="size-3.5" style={{ backgroundColor: p.preview.surface }} />
+                                        <span
+                                            aria-hidden="true"
+                                            className="flex overflow-hidden rounded-[2px] border border-border/60"
+                                        >
+                                            <span
+                                                className="size-3.5"
+                                                style={{ backgroundColor: p.preview.bg }}
+                                            />
+                                            <span
+                                                className="size-3.5"
+                                                style={{ backgroundColor: p.preview.surface }}
+                                            />
                                             {p.preview.dots.map((color, i) => (
-                                                <span key={i} className="size-3.5" style={{ backgroundColor: color }} />
+                                                <span
+                                                    key={i}
+                                                    className="size-3.5"
+                                                    style={{ backgroundColor: color }}
+                                                />
                                             ))}
                                         </span>
-                                        <span>{p.label}</span>
+                                        <span>{label}</span>
                                         <span aria-hidden="true" className="size-3.5">
                                             {active && <Check className="size-3.5" />}
                                         </span>
@@ -253,35 +296,47 @@ export function AppearancePanel() {
                         </div>
                     </SettingRow>
                     <SettingRow
-                        label="显示模式"
+                        label={t('显示模式', 'Display mode')}
                         hint={
                             managedBy
-                                ? '明暗模式跟随宿主。'
+                                ? t('明暗模式跟随宿主。', 'Light or dark mode follows the host.')
                                 : paletteFixed
-                                  ? '当前由 Catppuccin 配色决定明暗。'
+                                  ? t(
+                                        '当前由 Catppuccin 配色决定明暗。',
+                                        'The selected Catppuccin palette controls light or dark mode.',
+                                    )
                                   : undefined
                         }
                     >
                         <Segmented
                             value={a.mode}
-                            options={MODE_OPTIONS}
+                            options={modes}
                             onChange={(mode) => setAppearance({ mode })}
                             disabled={paletteFixed}
                         />
                     </SettingRow>
                     <SettingRow
-                        label="深色强度"
+                        label={t('深色强度', 'Dark mode intensity')}
                         hint={
                             managedBy
-                                ? '深色材质由宿主外观决定。'
+                                ? t(
+                                      '深色材质由宿主外观决定。',
+                                      'The host controls dark mode materials.',
+                                  )
                                 : paletteFixed
-                                  ? 'Catppuccin 配色自带明暗，无需调节。'
-                                  : '纯黑用于 OLED，仅在深色模式下可见。'
+                                  ? t(
+                                        'Catppuccin 配色自带明暗，无需调节。',
+                                        'The selected Catppuccin palette sets its own intensity.',
+                                    )
+                                  : t(
+                                        '纯黑用于 OLED，仅在深色模式下可见。',
+                                        'Pure black is designed for OLED and only appears in dark mode.',
+                                    )
                         }
                     >
                         <Segmented
                             value={a.darkIntensity}
-                            options={DARK_INTENSITY_OPTIONS}
+                            options={darkIntensities}
                             onChange={(darkIntensity) => setAppearance({ darkIntensity })}
                             disabled={paletteFixed}
                         />
@@ -289,15 +344,19 @@ export function AppearancePanel() {
                 </Group>
 
                 <Group
-                    title="强调色"
+                    title={t('强调色', 'Accent color')}
                     icon={Palette}
-                    description="按钮、链接与高亮的颜色。"
+                    description={t(
+                        '按钮、链接与高亮的颜色。',
+                        'Color for buttons, links, and highlights.',
+                    )}
                 >
-                    <SettingRow label="预设色" layout="stack">
+                    <SettingRow label={t('预设色', 'Color presets')} layout="stack">
                         <div className="flex flex-wrap items-center gap-2">
                             {ACCENTS.map((spec) => {
                                 const active =
                                     a.accentMode === 'preset' && a.accentPreset === spec.id;
+                                const label = t(spec.label, spec.labelEn);
                                 return (
                                     <button
                                         key={spec.id}
@@ -309,15 +368,21 @@ export function AppearancePanel() {
                                                 accentPreset: spec.id,
                                             })
                                         }
-                                        title={spec.label}
-                                        aria-label={spec.label}
+                                        title={label}
+                                        aria-label={label}
                                         className={cn(
                                             'inline-flex min-h-11 items-center gap-2 rounded-[4px] border px-3 text-xs transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                            active ? 'border-foreground' : 'border-border hover:bg-muted/40',
+                                            active
+                                                ? 'border-foreground'
+                                                : 'border-border hover:bg-muted/40',
                                         )}
                                     >
-                                        <span aria-hidden="true" className="size-4 rounded-[2px] border border-border/60" style={{ backgroundColor: spec.swatch }} />
-                                        <span>{spec.label}</span>
+                                        <span
+                                            aria-hidden="true"
+                                            className="size-4 rounded-[2px] border border-border/60"
+                                            style={{ backgroundColor: spec.swatch }}
+                                        />
+                                        <span>{label}</span>
                                         <span aria-hidden="true" className="size-3.5">
                                             {active && <Check className="size-3.5" />}
                                         </span>
@@ -325,10 +390,12 @@ export function AppearancePanel() {
                                 );
                             })}
                             <label
-                                title="自定义颜色"
+                                title={t('自定义颜色', 'Custom color')}
                                 className={cn(
                                     'relative inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[4px] border px-3 text-xs focus-within:ring-2 focus-within:ring-ring',
-                                    a.accentMode === 'custom' ? 'border-foreground' : 'border-border',
+                                    a.accentMode === 'custom'
+                                        ? 'border-foreground'
+                                        : 'border-border',
                                 )}
                             >
                                 <input
@@ -336,27 +403,37 @@ export function AppearancePanel() {
                                     value={toColorInputValue(a.accentCustom)}
                                     onChange={(e) => pickCustomAccent(e.target.value)}
                                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                    aria-label="自定义强调色"
+                                    aria-label={t('自定义强调色', 'Custom accent color')}
                                 />
-                                <span aria-hidden="true" className="size-4 rounded-[2px] border border-border/60" style={{ backgroundColor: a.accentCustom }} />
-                                <span>自定义</span>
+                                <span
+                                    aria-hidden="true"
+                                    className="size-4 rounded-[2px] border border-border/60"
+                                    style={{ backgroundColor: a.accentCustom }}
+                                />
+                                <span>{t('自定义', 'Custom')}</span>
                                 <span aria-hidden="true" className="size-3.5">
                                     {a.accentMode === 'custom' && <Check className="size-3.5" />}
                                 </span>
                             </label>
                         </div>
                     </SettingRow>
-                    <SettingRow label="应用范围" hint="“仅导航”时，主区域保持默认色。">
+                    <SettingRow
+                        label={t('应用范围', 'Accent scope')}
+                        hint={t(
+                            '“仅导航”时，主区域保持默认色。',
+                            'Navigation only keeps the main area in the default color.',
+                        )}
+                    >
                         <Segmented
                             value={a.accentScope}
-                            options={SCOPE_OPTIONS}
+                            options={accentScopes}
                             onChange={(accentScope) => setAppearance({ accentScope })}
                         />
                     </SettingRow>
-                    <SettingRow label="导航样式">
+                    <SettingRow label={t('导航样式', 'Navigation style')}>
                         <Segmented
                             value={a.sidebarStyle}
-                            options={SIDEBAR_STYLE_OPTIONS}
+                            options={sidebarStyles}
                             onChange={(sidebarStyle) => setAppearance({ sidebarStyle })}
                         />
                     </SettingRow>
@@ -369,44 +446,58 @@ export function AppearancePanel() {
                     removeBackground={removeBackground}
                 />
             </fieldset>
-            <Group title="排版与界面" icon={Palette}>
-                <fieldset disabled={!!managedBy} className="contents" aria-label="字体与圆角">
-                    <SettingRow label="界面字体" layout="stack">
+            <Group title={t('排版与界面', 'Typography and interface')} icon={Palette}>
+                <fieldset
+                    disabled={!!managedBy}
+                    className="contents"
+                    aria-label={t('字体与圆角', 'Fonts and corner radius')}
+                >
+                    <SettingRow label={t('界面字体', 'Interface font')} layout="stack">
                         <FontField
-                            label="界面字体"
+                            label={t('界面字体', 'interface font')}
                             value={a.fontSans}
                             custom={a.fontSansCustom}
                             presets={FONT_SANS_OPTIONS}
                             onChange={(fontSans) => setAppearance({ fontSans })}
                             onCustomChange={(fontSansCustom) => setAppearance({ fontSansCustom })}
-                            placeholder="例如：LXGW WenKai, PingFang SC"
+                            placeholder={t(
+                                '例如：LXGW WenKai, PingFang SC',
+                                'For example: LXGW WenKai, PingFang SC',
+                            )}
                         />
                     </SettingRow>
-                    <SettingRow label="等宽字体" hint="用于日志与代码。" layout="stack">
+                    <SettingRow
+                        label={t('等宽字体', 'Monospace font')}
+                        hint={t('用于日志与代码。', 'Used for logs and code.')}
+                        layout="stack"
+                    >
                         <FontField
-                            label="等宽字体"
+                            label={t('等宽字体', 'monospace font')}
                             value={a.fontMono}
                             custom={a.fontMonoCustom}
                             presets={FONT_MONO_OPTIONS}
                             onChange={(fontMono) => setAppearance({ fontMono })}
                             onCustomChange={(fontMonoCustom) => setAppearance({ fontMonoCustom })}
-                            placeholder="例如：Cascadia Code, Sarasa Mono SC"
+                            placeholder={t(
+                                '例如：Cascadia Code, Sarasa Mono SC',
+                                'For example: Cascadia Code, Sarasa Mono SC',
+                            )}
                         />
                     </SettingRow>
-                    <SettingRow label="圆角">
+                    <SettingRow label={t('圆角', 'Corner radius')}>
                         <Segmented
                             value={a.radius}
                             options={RADIUS_OPTIONS.map((r) => ({
                                 value: r.value,
-                                label: r.label,
+                                label: t(r.label, r.labelEn),
                             }))}
                             onChange={(radius) => setAppearance({ radius })}
                         />
                     </SettingRow>
                 </fieldset>
                 <SliderSettingRow
-                    label="界面缩放"
-                    hint="整体缩放界面。"
+                    label={t('界面缩放', 'Interface scale')}
+                    hint={t('整体缩放界面。', 'Scale the entire interface.')}
                     min={UI_SCALE.min}
                     max={UI_SCALE.max}
                     step={UI_SCALE.step}
@@ -415,10 +506,10 @@ export function AppearancePanel() {
                     onValueChange={(uiScale) => setAppearance({ uiScale })}
                     aria-valuetext={`${Math.round(a.uiScale * 100)}%`}
                 />
-                <SettingRow label="显示密度">
+                <SettingRow label={t('显示密度', 'Display density')}>
                     <Segmented
                         value={a.density}
-                        options={DENSITY_OPTIONS}
+                        options={densities}
                         onChange={(density) => setAppearance({ density })}
                     />
                 </SettingRow>
@@ -426,83 +517,106 @@ export function AppearancePanel() {
 
             <details>
                 <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    主题颜色变量
+                    {t('主题颜色变量', 'Theme color variables')}
                 </summary>
-            <fieldset disabled={!!managedBy} className="contents" aria-label="主题变量">
-                <ThemeVarsPanel
-                    cssVars={a.cssVars}
-                    onChange={(cssVars) => setAppearance({ cssVars })}
-                />
-            </fieldset>
+                <fieldset
+                    disabled={!!managedBy}
+                    className="contents"
+                    aria-label={t('主题变量', 'Theme variables')}
+                >
+                    <ThemeVarsPanel
+                        cssVars={a.cssVars}
+                        onChange={(cssVars) => setAppearance({ cssVars })}
+                    />
+                </fieldset>
             </details>
 
             <TopbarPanel />
             <Group
-                title="显示效果"
+                title={t('显示效果', 'Display effects')}
                 icon={Layers}
-                description="手动选择动效与材质。改动立即应用，并通过同一外观设置同步保存。"
+                description={t(
+                    '手动选择动效与材质。改动立即应用，并通过同一外观设置同步保存。',
+                    'Choose motion and materials manually. Changes apply immediately and sync with your appearance settings.',
+                )}
             >
                 <DisplayEffectsControls
-                    value={{ disableMotion: a.disableMotion, performanceMode: a.performanceMode ?? 'high' }}
+                    value={{
+                        disableMotion: a.disableMotion,
+                        performanceMode: a.performanceMode ?? 'high',
+                    }}
                     onChange={setAppearance}
                 />
             </Group>
 
-            <Group
-                title="交互与无障碍"
-                icon={Accessibility}
-            >
+            <Group title={t('交互与无障碍', 'Interaction and accessibility')} icon={Accessibility}>
                 <SettingRow
-                    label="自定义右键菜单"
-                    hint="默认开启；关闭后立即恢复浏览器原生右键菜单。"
+                    label={t('自定义右键菜单', 'Custom context menu')}
+                    hint={t(
+                        '默认开启；关闭后立即恢复浏览器原生右键菜单。',
+                        'On by default. Turn it off to restore the browser context menu immediately.',
+                    )}
                     layout="inline"
                 >
                     <ToggleSwitch
                         value={a.customContextMenu}
                         onChange={(customContextMenu) => setAppearance({ customContextMenu })}
-                        ariaLabel="自定义右键菜单"
+                        ariaLabel={t('自定义右键菜单', 'Custom context menu')}
                     />
                 </SettingRow>
                 <SettingRow
-                    label="自定义光标"
-                    hint="使用主题化自适应光标。"
+                    label={t('自定义光标', 'Custom cursor')}
+                    hint={t('使用主题化自适应光标。', 'Use a cursor that adapts to the theme.')}
                     layout="inline"
                 >
                     <ToggleSwitch
                         value={a.customPointerSystem}
                         disabled={!!managedBy}
                         onChange={(customPointerSystem) => setAppearance({ customPointerSystem })}
-                        ariaLabel="自定义光标"
+                        ariaLabel={t('自定义光标', 'Custom cursor')}
                     />
                 </SettingRow>
                 <SettingRow
-                    label="减弱动效"
-                    hint="减少位移与弹簧，保留轻微淡入。"
+                    label={t('减弱动效', 'Reduce motion')}
+                    hint={t(
+                        '减少位移与弹簧，保留轻微淡入。',
+                        'Reduce movement and spring animations while keeping subtle fades.',
+                    )}
                     layout="inline"
                 >
                     <ToggleSwitch
                         value={a.reduceMotion}
                         onChange={(reduceMotion) => setAppearance({ reduceMotion })}
-                        ariaLabel="减弱动效"
+                        ariaLabel={t('减弱动效', 'Reduce motion')}
                     />
                 </SettingRow>
-                <SettingRow label="高对比模式" hint="加强边框与次要文字的对比度。" layout="inline">
+                <SettingRow
+                    label={t('高对比模式', 'High contrast')}
+                    hint={t(
+                        '加强边框与次要文字的对比度。',
+                        'Increase contrast for borders and secondary text.',
+                    )}
+                    layout="inline"
+                >
                     <ToggleSwitch
                         value={a.highContrast}
                         onChange={(highContrast) => setAppearance({ highContrast })}
-                        ariaLabel="高对比模式"
+                        ariaLabel={t('高对比模式', 'High contrast')}
                     />
                 </SettingRow>
                 {isDesktop && (
                     <SettingRow
-                        label="显示导航说明"
-                        hint="在宽屏导航中显示页面用途。"
+                        label={t('显示导航说明', 'Show navigation descriptions')}
+                        hint={t(
+                            '在宽屏导航中显示页面用途。',
+                            'Describe each page in wide-screen navigation.',
+                        )}
                         layout="inline"
                     >
                         <ToggleSwitch
                             value={a.sidebarPinned}
                             onChange={(sidebarPinned) => setAppearance({ sidebarPinned })}
-                            ariaLabel="显示导航说明"
+                            ariaLabel={t('显示导航说明', 'Show navigation descriptions')}
                         />
                     </SettingRow>
                 )}
@@ -515,10 +629,13 @@ export function AppearancePanel() {
                         setContrastWarn(null);
                     }
                 }}
-                title="强调色对比度较低"
-                description={`所选强调色与背景的对比度约为 ${contrastWarn?.ratio.toFixed(1)}:1，低于推荐的 3:1，用作链接或图标时可能不易辨认。可以保留，或恢复默认强调色。`}
-                confirmText="恢复默认色"
-                cancelText="仍然使用"
+                title={t('强调色对比度较低', 'Low accent color contrast')}
+                description={t(
+                    `所选强调色与背景的对比度约为 ${contrastWarn?.ratio.toFixed(1)}:1，低于推荐的 3:1，用作链接或图标时可能不易辨认。可以保留，或恢复默认强调色。`,
+                    `The selected color has about ${contrastWarn?.ratio.toFixed(1)}:1 contrast against the background, below the recommended 3:1. Links and icons may be hard to see. Keep it or restore the default accent.`,
+                )}
+                confirmText={t('恢复默认色', 'Restore default color')}
+                cancelText={t('仍然使用', 'Keep color')}
                 onConfirm={() =>
                     setAppearance({
                         accentMode: 'preset',
@@ -531,7 +648,7 @@ export function AppearancePanel() {
     );
 }
 
-// A font selector: preset segments + a "自定义" segment that reveals a
+// A font selector: preset segments + a "Custom" segment that reveals a
 // free-form family input. On Chromium (where `queryLocalFonts` exists) the
 // input gets a native <datalist> populated with the user's installed fonts;
 // everywhere else it stays a plain text box (feature-detect, silent fallback).
@@ -555,16 +672,17 @@ function FontField({
     onCustomChange: (family: string) => void;
     placeholder: string;
 }) {
+    const t = useT();
     const listId = useId();
     const [fonts, setFonts] = useState<string[] | null>(null);
     const [loading, setLoading] = useState(false);
-    const [fontLoadError, setFontLoadError] = useState<string | null>(null);
+    const [fontLoadError, setFontLoadError] = useState(false);
     const canQuery = typeof (window as FontQueryWindow).queryLocalFonts === 'function';
     const isCustom = value === FONT_CUSTOM_ID;
 
     const options: Opt<string>[] = [
-        ...presets.map((f) => ({ value: f.id, label: f.label })),
-        { value: FONT_CUSTOM_ID, label: '自定义' },
+        ...presets.map((f) => ({ value: f.id, label: t(f.label, f.labelEn) })),
+        { value: FONT_CUSTOM_ID, label: t('自定义', 'Custom') },
     ];
 
     // Lazily enumerate local fonts the first time the field is focused.
@@ -574,7 +692,7 @@ function FontField({
         }
 
         setLoading(true);
-        setFontLoadError(null);
+        setFontLoadError(false);
 
         try {
             const arr = await (window as FontQueryWindow).queryLocalFonts!();
@@ -583,7 +701,7 @@ function FontField({
             );
         } catch (error) {
             console.error('Failed to enumerate local fonts', error);
-            setFontLoadError('无法读取本机字体，请检查浏览器权限后重试。');
+            setFontLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -596,7 +714,7 @@ function FontField({
                 <div className="flex flex-col gap-1.5">
                     <input
                         type="text"
-                        aria-label={`自定义${label}`}
+                        aria-label={t(`自定义${label}`, `Custom ${label}`)}
                         value={custom}
                         list={canQuery ? listId : undefined}
                         onChange={(e) => onCustomChange(e.target.value)}
@@ -619,25 +737,39 @@ function FontField({
                         ready={!loading}
                         reserve={28}
                         lines={1}
-                        label="本机字体"
+                        label={t('本机字体', 'Local fonts')}
                         className={!loading ? 'skeleton-swap-fluid' : ''}
                     >
                         {fontLoadError ? (
-                            <div role="alert" className="flex flex-wrap items-center gap-2 text-xs leading-snug text-destructive">
-                                <span>{fontLoadError}</span>
+                            <div
+                                role="alert"
+                                className="flex flex-wrap items-center gap-2 text-xs leading-snug text-destructive"
+                            >
+                                <span>
+                                    {t(
+                                        '无法读取本机字体，请检查浏览器权限后重试。',
+                                        'Could not read local fonts. Check browser permissions and try again.',
+                                    )}
+                                </span>
                                 <button
                                     type="button"
                                     className="min-h-11 shrink-0 px-2 font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     onClick={() => void loadFonts()}
                                 >
-                                    重试
+                                    {t('重试', 'Retry')}
                                 </button>
                             </div>
                         ) : (
                             <p className="text-xs leading-snug text-muted-foreground">
                                 {canQuery
-                                    ? '可选择本机字体或输入名称；未安装时使用系统字体。'
-                                    : '可输入多个已安装字体，用逗号分隔；未安装时使用系统字体。'}
+                                    ? t(
+                                          '可选择本机字体或输入名称；未安装时使用系统字体。',
+                                          'Choose an installed font or enter its name. Unavailable fonts fall back to the system font.',
+                                      )
+                                    : t(
+                                          '可输入多个已安装字体，用逗号分隔；未安装时使用系统字体。',
+                                          'Enter installed font names separated by commas. Unavailable fonts fall back to the system font.',
+                                      )}
                             </p>
                         )}
                     </SkeletonSwap>
@@ -649,17 +781,17 @@ function FontField({
 
 // Curated subset of the cssVars whitelist surfaced as colour pickers. The
 // server accepts the full token set; this is just the operator-friendly view.
-const CSS_VAR_FIELDS: { token: string; label: string }[] = [
-    { token: '--background', label: '页面背景' },
-    { token: '--foreground', label: '主文字' },
-    { token: '--card', label: '卡片背景' },
-    { token: '--primary', label: '主色调' },
-    { token: '--muted-foreground', label: '次要文字' },
-    { token: '--border', label: '边框' },
-    { token: '--sidebar', label: '导航背景' },
-    { token: '--destructive', label: '危险 / 错误' },
-    { token: '--success', label: '成功' },
-    { token: '--warning', label: '警告' },
+const CSS_VAR_FIELDS: { token: string; label: [zh: string, en: string] }[] = [
+    { token: '--background', label: ['页面背景', 'Page background'] },
+    { token: '--foreground', label: ['主文字', 'Primary text'] },
+    { token: '--card', label: ['卡片背景', 'Card background'] },
+    { token: '--primary', label: ['主色调', 'Primary color'] },
+    { token: '--muted-foreground', label: ['次要文字', 'Secondary text'] },
+    { token: '--border', label: ['边框', 'Border'] },
+    { token: '--sidebar', label: ['导航背景', 'Navigation background'] },
+    { token: '--destructive', label: ['危险 / 错误', 'Danger / error'] },
+    { token: '--success', label: ['成功', 'Success'] },
+    { token: '--warning', label: ['警告', 'Warning'] },
 ];
 
 // The variable panel: per-token colour overrides layered over the active
@@ -672,6 +804,7 @@ function ThemeVarsPanel({
     cssVars: Record<string, string>;
     onChange: (next: Record<string, string>) => void;
 }) {
+    const t = useT();
     const set = (token: string, hex: string) => onChange({ ...cssVars, [token]: hex });
 
     const clear = (token: string) => {
@@ -684,16 +817,20 @@ function ThemeVarsPanel({
 
     return (
         <Group
-            title="颜色覆盖"
+            title={t('颜色覆盖', 'Color overrides')}
             icon={Palette}
-            description="覆盖当前配色；未设置的沿用默认值。白名单颜色变量也应用于登录页。"
+            description={t(
+                '覆盖当前配色；未设置的沿用默认值。白名单颜色变量也应用于登录页。',
+                'Override the current palette. Unset colors use the defaults. Supported color variables also apply to the sign-in page.',
+            )}
         >
             {CSS_VAR_FIELDS.map((f) => {
                 const override = cssVars[f.token];
+                const label = t(...f.label);
                 return (
                     <SettingRow
                         key={f.token}
-                        label={f.label}
+                        label={label}
                         hint={<code className="font-mono text-meta">{f.token}</code>}
                         layout="inline"
                     >
@@ -703,10 +840,12 @@ function ThemeVarsPanel({
                                     {override}
                                 </span>
                             ) : (
-                                <span className="text-meta text-muted-foreground">默认</span>
+                                <span className="text-meta text-muted-foreground">
+                                    {t('默认', 'Default')}
+                                </span>
                             )}
                             <label
-                                title="选择颜色"
+                                title={t('选择颜色', 'Choose color')}
                                 className="relative size-11 cursor-pointer overflow-hidden rounded-[4px] border bg-muted/40 focus-within:ring-2 focus-within:ring-ring"
                                 style={override ? { backgroundColor: override } : undefined}
                             >
@@ -715,14 +854,14 @@ function ThemeVarsPanel({
                                     value={toColorInputValue(override || '#888888', '#888888')}
                                     onChange={(e) => set(f.token, e.target.value)}
                                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                    aria-label={`${f.label}颜色`}
+                                    aria-label={t(`${label}颜色`, `Choose color for ${label}`)}
                                 />
                             </label>
                             <button
                                 type="button"
                                 onClick={() => clear(f.token)}
                                 disabled={!override}
-                                aria-label={`重置${f.label}`}
+                                aria-label={t(`重置${label}`, `Reset ${label}`)}
                                 className="flex size-11 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:text-destructive disabled:opacity-30"
                             >
                                 <RotateCcw className="size-3.5" />
@@ -733,14 +872,16 @@ function ThemeVarsPanel({
             })}
             {count > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    <span className="text-meta text-muted-foreground">已覆盖 {count} 个变量</span>
+                    <span className="text-meta text-muted-foreground">
+                        {t(`已覆盖 ${count} 个变量`, `Overridden variables: ${count}`)}
+                    </span>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onChange({})}
                         className="text-destructive hover:text-destructive"
                     >
-                        <RotateCcw className="size-4" /> 全部恢复默认
+                        <RotateCcw className="size-4" /> {t('全部恢复默认', 'Restore all defaults')}
                     </Button>
                 </div>
             )}

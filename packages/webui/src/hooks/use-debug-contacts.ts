@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useT } from '@/i18n';
 import { useApi } from '@/lib/api';
-import { createContactList, type ContactKind } from '@/lib/debug-contacts';
+import { createContactList, contactErrorMessage, type ContactKind } from '@/lib/debug-contacts';
 
 export { userAvatar, groupAvatar } from '@/lib/debug-contacts';
 
 function useContactList(kind: ContactKind, uin: string, groupId = '') {
+    const t = useT();
     const api = useApi();
     const store = useMemo(
         () => createContactList(api.debug.invoke, kind, uin, groupId),
@@ -17,7 +19,11 @@ function useContactList(kind: ContactKind, uin: string, groupId = '') {
         return store.invalidate;
     }, [store]);
 
-    return { ...state, refresh: () => void store.refresh() };
+    return {
+        ...state,
+        error: contactErrorMessage(state.error, t),
+        refresh: () => void store.refresh(),
+    };
 }
 
 export function useFriends(uin: string) {

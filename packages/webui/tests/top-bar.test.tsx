@@ -5,8 +5,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MotionConfig } from 'motion/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UiLayoutItem } from '../src/types';
-import { WorkspaceManagement, NAV_ITEMS, NavigationDock } from '../src/components/layout/sidebar';
-import { TopBar } from '../src/components/layout/top-bar';
+import {
+    WorkspaceManagement,
+    NAV_ITEMS,
+    NavigationDock,
+    localizeNavItem,
+} from '../src/components/layout/sidebar';
+import { TopBar, TOPBAR_CATALOGUE, localizeTopbarItem } from '../src/components/layout/top-bar';
+import { LocaleProvider, translator, type Language } from '../src/i18n';
 
 const state = vi.hoisted(() => ({
     pathname: '/',
@@ -128,15 +134,17 @@ beforeEach(() => {
     });
 });
 
-function topbar() {
+function topbar(status = '已连接', language: Language = 'zh', fixed?: Language) {
     return renderToStaticMarkup(
-        <MotionConfig reducedMotion="always">
-            <TopBar
-                status="已连接"
-                onManageWorkspace={state.onManageWorkspace}
-                onLogout={state.onLogout}
-            />
-        </MotionConfig>,
+        <LocaleProvider initial={language} fixed={fixed}>
+            <MotionConfig reducedMotion="always">
+                <TopBar
+                    status={status}
+                    onManageWorkspace={state.onManageWorkspace}
+                    onLogout={state.onLogout}
+                />
+            </MotionConfig>
+        </LocaleProvider>,
     );
 }
 
@@ -172,6 +180,52 @@ describe('workspace navigation and management', () => {
         expect(topbar()).not.toContain('页面导航');
     });
 
+    it('renders the same routes and chrome controls in English with a language switch', () => {
+        state.pathname = '/config';
+        state.navItems = [{ id: '/logs', visible: false }];
+        const html = renderToStaticMarkup(
+            <LocaleProvider initial="en">
+                <NavigationDock />
+                <WorkspaceManagement />
+            </LocaleProvider>,
+        );
+        expect(html).toContain('aria-label="Main navigation"');
+        expect(html).toContain('aria-label="Hidden pages"');
+        expect(html).toContain('href="/logs"');
+
+        const t = translator('en');
+
+        for (const item of NAV_ITEMS) {
+            const localized = localizeNavItem(item, t);
+            expect(localized).toMatchObject({ to: item.to, icon: item.icon });
+            expect(localized.description).not.toBe(item.description);
+            expect(html).toContain(localized.label);
+        }
+
+        expect(TOPBAR_CATALOGUE.map((item) => localizeTopbarItem(item, t))).toEqual([
+            { id: 'status', label: 'Console connection' },
+            { id: 'theme', label: 'Theme menu' },
+            { id: 'kiosk', label: 'Presentation mode' },
+        ]);
+        const header = topbar('已连接', 'en');
+        expect(header).toContain('<h1>Bot connections</h1>');
+        expect(header).toContain('data-online="true"');
+        expect(header).toContain('Server online');
+        expect(header).toContain('aria-label="切换到简体中文"');
+        expect(header).toContain('aria-label="Change theme: Light"');
+        expect(topbar()).toContain('aria-label="Switch to English"');
+        expect(topbar('已连接', 'en', 'en')).not.toContain('切换到简体中文');
+    });
+
+    it.each([
+        ['未授权', 'Unauthorized'],
+        ['未连接', 'Disconnected'],
+    ])('localizes the offline status %s without changing its online flag', (status, label) => {
+        const header = topbar(status, 'en');
+        expect(header).toContain('data-online="false"');
+        expect(header).toContain(`aria-label="Console connection: ${label}"`);
+    });
+
     it('keeps saved order in the dock and access to every hidden page in management', () => {
         state.navItems = [
             { id: '/logs', visible: false },
@@ -198,7 +252,6 @@ describe('workspace navigation and management', () => {
         expect(pinned).toContain('href="/"');
         expect(pinned).toContain('href="/settings"');
     });
-
 
     it('keeps kiosk immediate and logout behind confirmation', async () => {
         topbar();

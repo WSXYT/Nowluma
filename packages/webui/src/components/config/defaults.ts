@@ -3,6 +3,7 @@
 // page / list / dialog all agree on naming and shape and a new adapter
 // kind only needs one entry in NETWORK_TABS to wire end-to-end.
 
+import { defaultTranslate, type Translate } from '@/i18n';
 import type {
     HttpClientNetwork,
     HttpServerNetwork,
@@ -19,13 +20,13 @@ export type TabKey = 'general' | NetworkKind;
 export interface NetworkTabDescriptor<K extends NetworkKind> {
     key: K;
     /** Tab label and dialog title prefix. */
-    title: string;
+    title: (t: Translate) => string;
     /** Short subtitle shown under the tab when active. */
-    description: string;
-    /** Singular noun for "新建 / 编辑 X". */
-    noun: string;
+    description: (t: Translate) => string;
+    /** Singular connection type for the add/edit dialog. */
+    noun: (t: Translate) => string;
     /** Project the adapter into a short list-card summary string. */
-    summarize: (item: OneBotNetworks[K][number]) => string;
+    summarize: (item: OneBotNetworks[K][number], t?: Translate) => string;
     /** Factory producing a fresh adapter with a unique suffix in its name. */
     defaultEntry: (suffix: number) => OneBotNetworks[K][number];
 }
@@ -38,9 +39,10 @@ export function generateAccessToken(): string {
 
 const httpServersTab: NetworkTabDescriptor<'httpServers'> = {
     key: 'httpServers',
-    title: 'HTTP 接口',
-    description: '在本机提供 HTTP 接口，供 Bot 程序调用。',
-    noun: 'HTTP 接口',
+    title: (t) => t('HTTP 接口', 'HTTP API'),
+    description: (t) =>
+        t('在本机提供 HTTP 接口，供 Bot 程序调用。', 'Host a local HTTP API for your bot.'),
+    noun: (t) => t('HTTP 接口', 'HTTP API'),
     summarize: (it: HttpServerNetwork) => {
         const host = it.host?.trim() || '0.0.0.0';
         const path = (it.path?.trim() || '/').replace(/^\/?/, '/');
@@ -61,10 +63,11 @@ const httpServersTab: NetworkTabDescriptor<'httpServers'> = {
 
 const httpClientsTab: NetworkTabDescriptor<'httpClients'> = {
     key: 'httpClients',
-    title: 'HTTP 推送',
-    description: '向指定 HTTP 地址推送事件。',
-    noun: 'HTTP 推送',
-    summarize: (it: HttpClientNetwork) => it.url || '(未设置 URL)',
+    title: (t) => t('HTTP 推送', 'HTTP push'),
+    description: (t) => t('向指定 HTTP 地址推送事件。', 'Push events to an HTTP endpoint.'),
+    noun: (t) => t('HTTP 推送', 'HTTP push'),
+    summarize: (it: HttpClientNetwork, t = defaultTranslate) =>
+        it.url || t('(未设置 URL)', '(No URL set)'),
     defaultEntry: (suffix): HttpClientNetwork => ({
         name: `httppost-${suffix}`,
         url: 'http://127.0.0.1:5700',
@@ -75,9 +78,13 @@ const httpClientsTab: NetworkTabDescriptor<'httpClients'> = {
 
 const wsServersTab: NetworkTabDescriptor<'wsServers'> = {
     key: 'wsServers',
-    title: 'WebSocket 监听',
-    description: '在本机监听 WebSocket，等待 Bot 程序连接。',
-    noun: 'WebSocket 监听',
+    title: (t) => t('WebSocket 监听', 'WebSocket listener'),
+    description: (t) =>
+        t(
+            '在本机监听 WebSocket，等待 Bot 程序连接。',
+            'Listen for WebSocket connections from your bot.',
+        ),
+    noun: (t) => t('WebSocket 监听', 'WebSocket listener'),
     summarize: (it: WsServerNetwork) => {
         const host = it.host?.trim() || '0.0.0.0';
         const path = (it.path?.trim() || '/').replace(/^\/?/, '/');
@@ -98,12 +105,13 @@ const wsServersTab: NetworkTabDescriptor<'wsServers'> = {
 
 const wsClientsTab: NetworkTabDescriptor<'wsClients'> = {
     key: 'wsClients',
-    title: '反向 WebSocket',
-    description: '主动连接 Bot 程序的 WebSocket 地址。',
-    noun: '反向 WebSocket',
-    summarize: (it: WsClientNetwork) => {
+    title: (t) => t('反向 WebSocket', 'Reverse WebSocket'),
+    description: (t) =>
+        t('主动连接 Bot 程序的 WebSocket 地址。', 'Connect to your bot’s WebSocket endpoint.'),
+    noun: (t) => t('反向 WebSocket', 'Reverse WebSocket'),
+    summarize: (it: WsClientNetwork, t = defaultTranslate) => {
         const role = it.role ?? 'Universal';
-        return `${it.url || '(未设置 URL)'} · ${role}`;
+        return `${it.url || t('(未设置 URL)', '(No URL set)')} · ${role}`;
     },
     defaultEntry: (suffix): WsClientNetwork => ({
         name: `wsclient-${suffix}`,

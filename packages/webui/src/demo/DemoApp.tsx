@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/interior/modal';
 import { createApiClient } from '@/lib/api';
 import { appRouter } from '@/router';
+import { translator, useLocale } from '@/i18n';
+import { APP_NAME } from '@/types';
+import { DEMO_NEW_PASSWORD } from './constants';
 import { DEMO_JOURNEY } from './journey';
 import type { DemoApi, DemoScenario } from './api';
 import { TutorialGuide } from './TutorialGuide';
@@ -13,6 +16,8 @@ import type { TutorialOptions } from './tutorial-options';
 import './demo.css';
 
 export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOptions }) {
+    const { language } = useLocale();
+    const t = translator(language);
     const lesson = options?.tutorial ? TUTORIAL_LESSONS[options.tutorial] : undefined;
     const embedded =
         lesson && options?.embed && typeof window !== 'undefined' && window.parent !== window;
@@ -20,7 +25,7 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
     const [guideOpen, setGuideOpen] = useState(true);
     const [desktopOpen, setDesktopOpen] = useState(false);
     const [selectedStep, setSelectedStep] = useState(0);
-    const [linkError, setLinkError] = useState('');
+    const [noticeKind, setNoticeKind] = useState<'blocked-link' | 'fail-next-write' | null>(null);
     const notice = useSyncExternalStore(
         api.subscribe,
         () => api.notice,
@@ -56,8 +61,7 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
 
     useEffect(() => {
         const desktop = () => setDesktopOpen(true);
-        const blocked = () =>
-            setLinkError('DEMO: External/unsupported links are blocked. Nothing was opened.');
+        const blocked = () => setNoticeKind('blocked-link');
         window.addEventListener('nowluma-demo-desktop', desktop);
         window.addEventListener('nowluma-demo-blocked-link', blocked);
 
@@ -104,7 +108,7 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
         appRouter.history.replace(lesson?.steps[0].route ?? '/');
         setEpoch((value) => value + 1);
         setSelectedStep(0);
-        setLinkError('');
+        setNoticeKind(null);
         setDesktopOpen(false);
         setGuideOpen(true);
     };
@@ -121,6 +125,18 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
 
     const summary = api.summary;
     const step = DEMO_JOURNEY[selectedStep];
+    const noticeText =
+        noticeKind === 'blocked-link'
+            ? t(
+                  '模拟器已阻止打开外部或不支持的链接。',
+                  'The simulator blocked an external or unsupported link.',
+              )
+            : noticeKind === 'fail-next-write'
+              ? t(
+                    '下一次非认证写入会失败，示例数据不会改变。检查结果后可重试。',
+                    'The next non-authentication write will fail without changing the sample data. Inspect the result before retrying.',
+                )
+              : null;
 
     return (
         <div
@@ -128,12 +144,10 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
             data-tutorial={lesson?.id}
             data-embed={embedded ? 'true' : undefined}
         >
-            <header className="demo-banner" aria-label="Nowluma">
+            <header className="demo-banner" aria-label={APP_NAME}>
                 <div className="demo-banner-label">
-                    <strong>
-                        {lesson ? tutorialText(lesson.title, options?.lang ?? 'zh') : 'Nowluma'}
-                    </strong>
-                    <span>{options?.lang === 'en' ? 'Sample data' : '示例数据'}</span>
+                    <strong>{lesson ? tutorialText(lesson.title, language) : APP_NAME}</strong>
+                    <span>{t('示例数据', 'Sample data')}</span>
                 </div>
                 <div className="demo-banner-actions">
                     <Button
@@ -144,12 +158,11 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                         aria-expanded={guideOpen}
                         aria-controls="demo-guide"
                     >
-                        <BookOpen size={15} />{' '}
-                        {embedded ? (options?.lang === 'en' ? 'Guide' : '引导') : 'Guide / 引导'}
+                        <BookOpen size={15} /> {t('引导', 'Guide')}
                     </Button>
                     {!embedded && (
                         <Button variant="outline" size="sm" onClick={reset}>
-                            <RotateCcw size={15} /> Reset / 重置
+                            <RotateCcw size={15} /> {t('重置', 'Reset')}
                         </Button>
                     )}
                 </div>
@@ -159,7 +172,7 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                     key={epoch}
                     api={api}
                     lesson={lesson}
-                    language={options?.lang ?? 'zh'}
+                    language={language}
                     open={guideOpen}
                     onClose={() => {
                         setGuideOpen(false);
@@ -173,21 +186,30 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                 <App key={epoch} client={client} />
             </div>
             {!lesson && guideOpen && (
-                <aside id="demo-guide" className="demo-guide" aria-label="Console guide / 操作引导">
+                <aside
+                    id="demo-guide"
+                    className="demo-guide"
+                    aria-label={t('操作引导', 'Console guide')}
+                >
                     <div className="demo-guide-heading">
                         <div>
-                            <h2>操作引导 / Console guide</h2>
+                            <h2>{t('操作引导', 'Console guide')}</h2>
                         </div>
                         <Button
                             variant="ghost"
                             size="icon"
-                            aria-label="Close guide / 收起引导"
-                            onClick={() => setGuideOpen(false)}
+                            aria-label={t('收起引导', 'Close guide')}
+                            onClick={() => {
+                                setGuideOpen(false);
+                                document
+                                    .querySelector<HTMLElement>('[data-demo-guide-toggle]')
+                                    ?.focus();
+                            }}
                         >
                             <X size={16} />
                         </Button>
                     </div>
-                    <nav className="demo-steps" aria-label="Practice steps">
+                    <nav className="demo-steps" aria-label={t('练习步骤', 'Practice steps')}>
                         {DEMO_JOURNEY.map((item, index) => (
                             <button
                                 key={item.id}
@@ -195,24 +217,27 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                                 aria-current={selectedStep === index ? 'step' : undefined}
                                 onClick={() => setSelectedStep(index)}
                             >
-                                {item.title}
+                                {index + 1} · {tutorialText(item.title, language)}
                             </button>
                         ))}
                     </nav>
                     <section className="demo-step-detail" aria-labelledby="demo-step-title">
-                        <h3 id="demo-step-title">{step.title}</h3>
-                        <p>{step.description}</p>
+                        <h3 id="demo-step-title">{tutorialText(step.title, language)}</h3>
+                        <p>{tutorialText(step.description, language)}</p>
                         {step.id === 'setup' && (
                             <p>
-                                访问密码 <code>{api.examplePassword}</code>；新密码{' '}
-                                <code>DemoChanged!2026</code>。
+                                {t('访问密码：', 'Access password: ')}
+                                <code>{api.examplePassword}</code>
+                                {t('；新密码：', '; new password: ')}
+                                <code>{DEMO_NEW_PASSWORD}</code>
                             </p>
                         )}
                         <p className="demo-control-label">
-                            Actual control: <strong>{step.control}</strong>
+                            {t('界面控件：', 'Controls: ')}
+                            <strong>{tutorialText(step.control, language)}</strong>
                         </p>
                         <Button size="sm" onClick={() => navigate(step.route)}>
-                            Open this console page / 前往
+                            {t('打开操作页', 'Open page')}
                         </Button>
                         {step.id === 'desktop' && (
                             <Button
@@ -220,12 +245,12 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                                 variant="outline"
                                 onClick={() => setDesktopOpen(true)}
                             >
-                                <Monitor size={15} /> Open mock desktop
+                                <Monitor size={15} /> {t('打开模拟桌面', 'Open mock desktop')}
                             </Button>
                         )}
                     </section>
                     <div className="demo-scenarios">
-                        <label htmlFor="demo-scenario">Scenario / 情景</label>
+                        <label htmlFor="demo-scenario">{t('情景', 'Scenario')}</label>
                         <select
                             id="demo-scenario"
                             value={api.scenario}
@@ -235,52 +260,61 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                                     : api.setScenario(event.target.value as DemoScenario)
                             }
                         >
-                            <option value="setup">First setup / 首次设置</option>
-                            <option value="ready">Ready account / 在线示例</option>
-                            <option value="offline">Account offline / 离线</option>
-                            <option value="failure">API failure / 接口错误</option>
+                            <option value="setup">{t('首次设置', 'First setup')}</option>
+                            <option value="ready">{t('在线示例', 'Ready account')}</option>
+                            <option value="offline">{t('离线', 'Account offline')}</option>
+                            <option value="failure">{t('接口错误', 'API failure')}</option>
                         </select>
                         <Button
                             size="sm"
                             variant="outline"
                             onClick={() => {
                                 api.failNextMutation = true;
-                                setLinkError(
-                                    'DEMO: 下一次非认证写入会失败且不改变内存；检查后可重试。Next non-auth write fails without changing memory.',
-                                );
+                                setNoticeKind('fail-next-write');
                             }}
                         >
-                            Fail next write / 下次写入失败
+                            {t('下次写入失败', 'Fail next write')}
                         </Button>
                     </div>
                     <p className="demo-progress">
-                        Session: {summary.authenticated ? 'example login' : 'signed out'} ·{' '}
+                        {t('会话：', 'Session: ')}
+                        {summary.authenticated
+                            ? t('示例登录', 'Example login')
+                            : t('未登录', 'Signed out')}{' '}
+                        ·{' '}
                         {summary.online
-                            ? 'simulated online'
+                            ? t('模拟在线', 'Simulated online')
                             : summary.stopped
-                              ? 'manual stop / 已停止'
+                              ? t('已手动停止', 'Manually stopped')
                               : summary.scanned
-                                ? 'scan detected'
-                                : 'awaiting mock scan'}{' '}
-                        · {summary.messages} sample messages
+                                ? t('已识别示例账号', 'Sample account detected')
+                                : t('等待模拟扫码', 'Awaiting mock scan')}{' '}
+                        ·{' '}
+                        {t(
+                            `${summary.messages} 条示例消息`,
+                            `${summary.messages} sample ${summary.messages === 1 ? 'message' : 'messages'}`,
+                        )}
                     </p>
                     <p className="demo-notice" role="status">
-                        {linkError || notice}
+                        {noticeText ?? notice}
                     </p>
                 </aside>
             )}
             <Modal
                 open={desktopOpen}
                 onClose={() => setDesktopOpen(false)}
-                title="QQ 桌面示例 / Desktop example"
-                description="选择下方操作以识别示例账号 10001。"
+                title={t('QQ 桌面示例', 'QQ desktop example')}
+                description={t(
+                    '选择下方操作以识别示例账号 10001。',
+                    'Use the control below to detect sample account 10001.',
+                )}
                 maxWidth={512}
             >
                 <div className="demo-desktop">
                     <Monitor size={44} aria-hidden="true" />
-                    <strong>QQ 桌面示例 / Desktop example</strong>
-                    <p>账号识别 / Account detection</p>
-                    <span>Account 10001 · DEMO 小光</span>
+                    <strong>{t('QQ 桌面示例', 'QQ desktop example')}</strong>
+                    <p>{t('账号识别', 'Account detection')}</p>
+                    <span>{t('账号', 'Account')} 10001 · DEMO 小光</span>
                 </div>
                 <Button
                     onClick={() => {
@@ -289,20 +323,23 @@ export function DemoApp({ api, options }: { api: DemoApi; options?: TutorialOpti
                         navigate('/processes');
                     }}
                 >
-                    Simulate scan / 模拟扫码
+                    {t('模拟扫码', 'Simulate scan')}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                    下一步：在进程页对 4242 点「加载」，再完成此账号的内核选择。
+                    {t(
+                        '下一步：在进程页对 4242 点「加载」，再完成此账号的内核选择。',
+                        'Next: choose Load for process 4242, then confirm the kernel choice for this account.',
+                    )}
                 </p>
             </Modal>
-            {(lesson || !guideOpen) && linkError && (
+            {(lesson || !guideOpen) && noticeText && (
                 <div className="demo-link-alert" role="alert">
-                    {linkError}
+                    {noticeText}
                     <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setLinkError('')}
-                        aria-label="Dismiss link warning"
+                        onClick={() => setNoticeKind(null)}
+                        aria-label={t('关闭提示', 'Dismiss notice')}
                     >
                         ×
                     </Button>

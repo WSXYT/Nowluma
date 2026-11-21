@@ -10,6 +10,7 @@ import { PaperBackdrop } from '@/components/layout/paper-backdrop';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useKiosk } from '@/contexts/KioskContext';
 import { cn } from '@/lib/utils';
+import { useT } from '@/i18n';
 import '@/styles/workspace.css';
 
 interface MainLayoutProps {
@@ -20,6 +21,7 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ status, onLogout, notice, children }: MainLayoutProps) {
+    const t = useT();
     const { appearance } = useTheme();
     const customBg = appearance.background.type !== 'none';
     const reduce = useReducedMotionConfig() || appearance.reduceMotion || appearance.disableMotion;
@@ -57,8 +59,10 @@ export function MainLayout({ status, onLogout, notice, children }: MainLayoutPro
                             }}
                         >
                             <div className="workspace-management-heading">
-                                <SheetTitle>工作区管理</SheetTitle>
-                                <SheetDescription>导航、布局与更新。</SheetDescription>
+                                <SheetTitle>{t('工作区管理', 'Workspace management')}</SheetTitle>
+                                <SheetDescription>
+                                    {t('导航、布局与更新。', 'Navigation, layout, and updates.')}
+                                </SheetDescription>
                             </div>
                             <WorkspaceManagement onItemClick={() => setManagementOpen(false)} />
                         </SheetContent>
@@ -70,8 +74,8 @@ export function MainLayout({ status, onLogout, notice, children }: MainLayoutPro
                 <button
                     type="button"
                     onClick={exitKiosk}
-                    title="退出展示模式 (Esc)"
-                    aria-label="退出展示模式"
+                    title={t('退出展示模式 (Esc)', 'Exit presentation mode (Esc)')}
+                    aria-label={t('退出展示模式', 'Exit presentation mode')}
                     className="workspace-icon-button workspace-kiosk-exit"
                 >
                     <Minimize2 className="size-4" />

@@ -18,12 +18,20 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/interior/modal';
 import { SkeletonSwap } from '@/components/interior/skeleton-swap';
 import { cn } from '@/lib/utils';
-import { nextStep, pickTargetProcess, type StepAction, type StepView } from '@/lib/next-step';
+import {
+    nextStep,
+    pickTargetProcess,
+    stepTitle,
+    type StepAction,
+    type StepView,
+} from '@/lib/next-step';
 import { DesktopButton } from '@/components/desktop-button';
 import { useAppState } from '@/contexts/AppStateContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/i18n';
 
 export function GettingStartedPanel() {
+    const t = useT();
     const {
         resources,
         processList,
@@ -43,7 +51,7 @@ export function GettingStartedPanel() {
     // 面板自己选定的 PID。不放进全局状态：这是引导过程里的临时选择。
     const [selectedPid, setSelectedPid] = useState<number | null>(null);
     const [picking, setPicking] = useState(false);
-    const [details, setDetails] = useState<StepView | null>(null);
+    const [details, setDetails] = useState<Pick<StepView, 'id' | 'done' | 'error'> | null>(null);
 
     const target = useMemo(
         () => pickTargetProcess(processList, selectedPid, selectedUin).target,
@@ -71,6 +79,7 @@ export function GettingStartedPanel() {
             pendingOp,
         },
         selectedUin,
+        t,
     );
 
     const refreshAll = () => {
@@ -111,7 +120,7 @@ export function GettingStartedPanel() {
                 return;
 
             case 'details':
-                setDetails(step);
+                setDetails({ id: step.id, done: step.done, error: step.error });
                 return;
 
             case 'open-config':
@@ -163,7 +172,7 @@ export function GettingStartedPanel() {
     return (
         <>
             <motion.section
-                aria-label="连接工作流"
+                aria-label={t('连接工作流', 'Connection workflow')}
                 initial={off ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={transition}
@@ -171,10 +180,17 @@ export function GettingStartedPanel() {
                 data-ready={step.done}
                 className="workspace-connection-workflow"
             >
-                <ol aria-label="连接路径" className="workspace-connection-story">
-                    {['QQ 会话', '机器人连接', '查看结果'].map((label, index) => (
+                <ol
+                    aria-label={t('连接路径', 'Connection steps')}
+                    className="workspace-connection-story"
+                >
+                    {[
+                        ['session', t('QQ 会话', 'QQ session')],
+                        ['connection', t('机器人连接', 'Bot connection')],
+                        ['results', t('查看结果', 'View results')],
+                    ].map(([id, label], index) => (
                         <li
-                            key={label}
+                            key={id}
                             aria-current={index === stage ? 'step' : undefined}
                             data-complete={index < stage}
                         >
@@ -187,7 +203,7 @@ export function GettingStartedPanel() {
                 </ol>
                 <div className="workspace-workflow-layout">
                     <div className="workspace-workflow-session">
-                        <p className="workspace-eyebrow">当前 QQ</p>
+                        <p className="workspace-eyebrow">{t('当前 QQ', 'Current QQ session')}</p>
                         <div className="workspace-focused-session">
                             {confirmed && target ? (
                                 <Avatar size={40}>
@@ -211,10 +227,16 @@ export function GettingStartedPanel() {
                                     title={target ? `PID ${target.pid}` : undefined}
                                 >
                                     {sessionName ||
-                                        (step.id === 'reading' ? '读取中…' : '尚未选择')}
+                                        (step.id === 'reading'
+                                            ? t('读取中…', 'Loading…')
+                                            : t('尚未选择', 'No session selected'))}
                                 </p>
                                 <p className="workspace-focused-session-meta">
-                                    {target ? (confirmed ? '已登录' : '待确认') : '从会话开始'}
+                                    {target
+                                        ? confirmed
+                                            ? t('已登录', 'Signed in')
+                                            : t('待确认', 'Unconfirmed')
+                                        : t('从会话开始', 'Start with a session')}
                                     {target && (
                                         <span className="font-mono">
                                             {' '}
@@ -228,12 +250,13 @@ export function GettingStartedPanel() {
                         {target && processList.length > 1 && (
                             <button
                                 type="button"
-                                aria-label="切换 QQ 会话"
+                                aria-label={t('切换 QQ 会话', 'Switch QQ session')}
                                 disabled={pendingOp !== null}
                                 onClick={() => run('choose-qq')}
                                 className="workspace-inline-link"
                             >
-                                更换会话 <ChevronRight className="size-3.5" />
+                                {t('更换会话', 'Switch session')}{' '}
+                                <ChevronRight className="size-3.5" />
                             </button>
                         )}
                     </div>
@@ -268,7 +291,7 @@ export function GettingStartedPanel() {
                                     lines={2}
                                     lineHeight={28}
                                     reserve={56}
-                                    label="下一步提示"
+                                    label={t('下一步提示', 'Next step')}
                                     className={step.id !== 'reading' ? 'skeleton-swap-fluid' : ''}
                                 >
                                     <h3 className="workspace-workflow-title">{step.title}</h3>
@@ -291,7 +314,7 @@ export function GettingStartedPanel() {
                                 <Button size="sm" asChild>
                                     <Link to="/logs">
                                         <ScrollText className="size-4" />
-                                        查看结果
+                                        {t('查看结果', 'View results')}
                                     </Link>
                                 </Button>
                             )}
@@ -338,16 +361,19 @@ export function GettingStartedPanel() {
             <Modal
                 open={picking}
                 onClose={() => setPicking(false)}
-                title="选择 QQ 会话"
-                description="只操作你选中的会话。"
-                closeLabel="关闭会话选择"
+                title={t('选择 QQ 会话', 'Select a QQ session')}
+                description={t('只操作你选中的会话。', 'Actions affect only the selected session.')}
+                closeLabel={t('关闭会话选择', 'Close session picker')}
                 className="workspace-modal"
             >
                 <div className="flex flex-col gap-2">
                     {processList.length === 0 ? (
                         <p className="flex items-center gap-2 text-sm text-muted-foreground">
                             <AlertCircle className="size-4" />
-                            现在没有检测到 QQ，先打开并登录 QQ 再回来。
+                            {t(
+                                '现在没有检测到 QQ，先打开并登录 QQ 再回来。',
+                                'No QQ process detected. Open QQ and sign in, then return here.',
+                            )}
                         </p>
                     ) : (
                         processList.map((proc) => (
@@ -380,22 +406,40 @@ export function GettingStartedPanel() {
             <Modal
                 open={details !== null}
                 onClose={() => setDetails(null)}
-                title={details?.done ? '连接说明' : '检查原因'}
-                description={details?.title}
-                closeLabel="关闭连接说明"
+                title={
+                    details?.done
+                        ? t('连接说明', 'Connection details')
+                        : t('检查原因', 'Check the error')
+                }
+                description={details ? stepTitle(details.id, t) : undefined}
+                closeLabel={t('关闭连接说明', 'Close connection details')}
                 className="workspace-modal"
             >
                 {details?.done ? (
                     <div className="flex flex-col gap-3 text-sm leading-relaxed text-muted-foreground">
-                        <p>连接就绪只表示端点在监听或已连上，不代表机器人已回复。</p>
-                        <p>在运行记录中核对消息；回复逻辑由你的机器人程序负责。</p>
+                        <p>
+                            {t(
+                                '连接就绪只表示端点在监听或已连上，不代表机器人已回复。',
+                                'Connection ready means the endpoint is listening or connected. It does not mean the bot has replied.',
+                            )}
+                        </p>
+                        <p>
+                            {t(
+                                '在运行记录中核对消息；回复逻辑由你的机器人程序负责。',
+                                'Check messages in the runtime logs. Your bot handles replies.',
+                            )}
+                        </p>
                     </div>
                 ) : (
                     <p
                         role="alert"
                         className="whitespace-pre-line break-words rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
                     >
-                        {details?.error || '没有更多信息，请查看「运行记录」。'}
+                        {details?.error ||
+                            t(
+                                '没有更多信息，请查看「运行记录」。',
+                                'No further details. Check the runtime logs.',
+                            )}
                     </p>
                 )}
             </Modal>

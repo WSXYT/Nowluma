@@ -18,31 +18,42 @@ import { DEFAULT_LAYOUT, DEFAULT_PAGES } from '@/contexts/LayoutContext';
 import { DEFAULT_APPEARANCE, useTheme } from '@/contexts/ThemeContext';
 import { useApi } from '@/lib/api';
 import { cn, downloadBlob } from '@/lib/utils';
+import { defaultTranslate, useT, type Translate } from '@/i18n';
 
 // ─────────────── 高级（自定义 CSS + 备份/重置） ───────────────
 
 // Ready-made CSS snippets, inserted at the cursor / appended. Plain string
 // constants (no editor library) — the operator tweaks them in the textarea and
 // native Cmd/Ctrl+Z undoes. Each is a complete, valid rule.
-const CSS_SNIPPETS: { label: string; css: string }[] = [
-    { label: '侧栏字号', css: '.text-sidebar-foreground {\n  font-size: 1.05em;\n}' },
+const CSS_SNIPPETS: { zh: string; en: string; css: string }[] = [
     {
-        label: '卡片毛玻璃',
+        zh: '侧栏字号',
+        en: 'Sidebar font size',
+        css: '.text-sidebar-foreground {\n  font-size: 1.05em;\n}',
+    },
+    {
+        zh: '卡片毛玻璃',
+        en: 'Frosted cards',
         css: '.bg-card {\n  -webkit-backdrop-filter: blur(8px);\n  backdrop-filter: blur(8px);\n  background-color: color-mix(in oklab, var(--card) 80%, transparent);\n}',
     },
     {
-        label: '隐藏滚动条',
+        zh: '隐藏滚动条',
+        en: 'Hide scrollbars',
         css: '* {\n  scrollbar-width: none;\n}\n*::-webkit-scrollbar {\n  width: 0;\n  height: 0;\n}',
     },
-    { label: '加粗标题', css: 'h1, h2, h3 {\n  font-weight: 700;\n  letter-spacing: -0.01em;\n}' },
-    { label: '紧凑卡片', css: '.rounded-xl {\n  border-radius: 0.5rem;\n}' },
+    {
+        zh: '加粗标题',
+        en: 'Bold headings',
+        css: 'h1, h2, h3 {\n  font-weight: 700;\n  letter-spacing: -0.01em;\n}',
+    },
+    { zh: '紧凑卡片', en: 'Compact cards', css: '.rounded-xl {\n  border-radius: 0.5rem;\n}' },
 ];
 
 // On-blur sanity check: parse the CSS once and surface a gentle warning if it
 // looks broken (unbalanced braces, or non-empty input that parses to zero
 // rules). Best-effort — returns null when parsing isn't available or the CSS
 // looks fine. Never blocks saving; the operator can always ?safe-mode=1.
-function validateCss(css: string): string | null {
+function validateCss(css: string, t: Translate = defaultTranslate): string | null {
     const trimmed = css.trim();
 
     if (!trimmed) {
@@ -53,11 +64,17 @@ function validateCss(css: string): string | null {
     const closes = (trimmed.match(/\}/g) ?? []).length;
 
     if (opens !== closes) {
-        return `括号不匹配（${opens} 个 “{” / ${closes} 个 “}”）— 可能有规则未闭合。`;
+        return t(
+            `括号不匹配（${opens} 个 “{” / ${closes} 个 “}”）— 可能有规则未闭合。`,
+            `Unbalanced braces (${opens} “{” / ${closes} “}”) — a rule may be unclosed.`,
+        );
     }
 
     if (opens === 0) {
-        return '没有检测到任何 CSS 规则（缺少 “{ … }”）。';
+        return t(
+            '没有检测到任何 CSS 规则（缺少 “{ … }”）。',
+            'No CSS rules found (missing “{ … }”).',
+        );
     }
 
     try {
@@ -66,17 +83,21 @@ function validateCss(css: string): string | null {
             sheet.replaceSync(trimmed);
 
             if (sheet.cssRules.length === 0) {
-                return '未解析出有效规则，请检查语法。';
+                return t(
+                    '未解析出有效规则，请检查语法。',
+                    'No valid rules parsed; check the syntax.',
+                );
             }
         }
     } catch {
-        return 'CSS 解析失败，请检查语法。';
+        return t('CSS 解析失败，请检查语法。', 'CSS parsing failed; check the syntax.');
     }
 
     return null;
 }
 
 export function AdvancedPanel() {
+    const t = useT();
     const { savedAppearance: appearance, setAppearance, managedBy } = useTheme();
     const { runAction } = useActionFeedback();
     const cssRef = useRef<HTMLTextAreaElement>(null);
@@ -95,10 +116,10 @@ export function AdvancedPanel() {
         try {
             const config = await runAction(
                 {
-                    title: '正在导出界面配置',
-                    detail: '外观、布局与自定义 CSS',
-                    successTitle: '界面配置已导出',
-                    errorTitle: '界面配置导出失败',
+                    title: t('正在导出界面配置', 'Exporting UI configuration'),
+                    detail: t('外观、布局与自定义 CSS', 'Appearance, layout and custom CSS'),
+                    successTitle: t('界面配置已导出', 'UI configuration exported'),
+                    errorTitle: t('界面配置导出失败', 'UI configuration export failed'),
                 },
                 () => api.ui.get(),
             );
@@ -108,7 +129,10 @@ export function AdvancedPanel() {
             );
         } catch (error) {
             console.error('export UI config failed', error);
-            setMsg({ kind: 'err', text: error instanceof Error ? error.message : '导出失败' });
+            setMsg({
+                kind: 'err',
+                text: error instanceof Error ? error.message : t('导出失败', 'Export failed'),
+            });
         } finally {
             setBusy(false);
         }
@@ -126,7 +150,13 @@ export function AdvancedPanel() {
         }
 
         if (file.size > 256 * 1024) {
-            setMsg({ kind: 'err', text: '导入失败：文件过大（上限 256KB）' });
+            setMsg({
+                kind: 'err',
+                text: t(
+                    '导入失败：文件过大（上限 256KB）',
+                    'Import failed: file too large (256KB limit)',
+                ),
+            });
             return;
         }
 
@@ -146,11 +176,11 @@ export function AdvancedPanel() {
 
             await runAction(
                 {
-                    title: '正在导入界面配置',
+                    title: t('正在导入界面配置', 'Importing UI configuration'),
                     detail: file.name,
-                    successTitle: '界面配置已导入',
-                    successDetail: '即将重新载入界面',
-                    errorTitle: '界面配置导入失败',
+                    successTitle: t('界面配置已导入', 'UI configuration imported'),
+                    successDetail: t('即将重新载入界面', 'Reloading the UI'),
+                    errorTitle: t('界面配置导入失败', 'UI configuration import failed'),
                     surviveReload: true,
                 },
                 () => api.ui.save(parsed as Parameters<typeof api.ui.save>[0]),
@@ -164,8 +194,14 @@ export function AdvancedPanel() {
                 text:
                     error instanceof SyntaxError ||
                     (error instanceof Error && error.message === 'shape')
-                        ? '导入失败：不是有效的配置 JSON'
-                        : `导入失败：${error instanceof Error ? error.message : '未知错误'}`,
+                        ? t(
+                              '导入失败：不是有效的配置 JSON',
+                              'Import failed: not a valid configuration JSON',
+                          )
+                        : t(
+                              `导入失败：${error instanceof Error ? error.message : '未知错误'}`,
+                              `Import failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+                          ),
             });
             throw error;
         }
@@ -177,11 +213,14 @@ export function AdvancedPanel() {
         try {
             await runAction(
                 {
-                    title: '正在重置界面配置',
-                    detail: '恢复外观、布局、导航与自定义 CSS',
-                    successTitle: '界面配置已重置',
-                    successDetail: '即将重新载入界面',
-                    errorTitle: '界面配置重置失败',
+                    title: t('正在重置界面配置', 'Resetting UI configuration'),
+                    detail: t(
+                        '恢复外观、布局、导航与自定义 CSS',
+                        'Restore appearance, layout, navigation and custom CSS',
+                    ),
+                    successTitle: t('界面配置已重置', 'UI configuration reset'),
+                    successDetail: t('即将重新载入界面', 'Reloading the UI'),
+                    errorTitle: t('界面配置重置失败', 'UI configuration reset failed'),
                     surviveReload: true,
                 },
                 () =>
@@ -194,7 +233,10 @@ export function AdvancedPanel() {
             window.location.reload();
         } catch (error) {
             setBusy(false);
-            setMsg({ kind: 'err', text: error instanceof Error ? error.message : '重置失败' });
+            setMsg({
+                kind: 'err',
+                text: error instanceof Error ? error.message : t('重置失败', 'Reset failed'),
+            });
             throw error;
         }
     };
@@ -215,44 +257,54 @@ export function AdvancedPanel() {
         }
 
         setAppearance({ customCss: next.slice(0, 50000) });
-        setCssWarn(validateCss(next));
+        setCssWarn(validateCss(next, t));
     };
 
     return (
         <div className="flex min-w-0 flex-col gap-7">
             {managedBy && (
                 <p className="text-sm text-muted-foreground">
-                    自定义 CSS 已保留，跟随{managedBy}外观期间暂停应用。
+                    {t(
+                        `自定义 CSS 已保留，跟随${managedBy}外观期间暂停应用。`,
+                        `Custom CSS is kept but paused while following the ${managedBy} appearance.`,
+                    )}
                 </p>
             )}
-            <fieldset disabled={!!managedBy || busy} className="contents" aria-label="自定义 CSS">
+            <fieldset
+                disabled={!!managedBy || busy}
+                className="contents"
+                aria-label={t('自定义 CSS', 'Custom CSS')}
+            >
                 <Group
-                    title="自定义 CSS"
+                    title={t('自定义 CSS', 'Custom CSS')}
                     icon={Code2}
-                    description="登录后应用，不影响登录页。"
+                    description={t(
+                        '登录后应用，不影响登录页。',
+                        'Applied after sign-in; the login page is unaffected.',
+                    )}
                 >
                     <div className="flex min-w-0 flex-col gap-3 py-3">
                         <details>
                             <summary className="min-h-11 cursor-pointer py-3 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                插入样式片段
+                                {t('插入样式片段', 'Insert style snippet')}
                             </summary>
                             <div className="flex flex-wrap items-center gap-1.5 pb-2">
                                 {CSS_SNIPPETS.map((s) => (
                                     <Button
-                                        key={s.label}
+                                        key={s.zh}
                                         type="button"
                                         variant="glass"
                                         size="sm"
                                         onClick={() => insertSnippet(s.css)}
                                     >
-                                        <Plus className="size-3" /> {s.label}
+                                        <Plus className="size-3" /> {t(s.zh, s.en)}
                                     </Button>
                                 ))}
                             </div>
                         </details>
                         <Textarea
                             ref={cssRef}
-                            aria-label="自定义 CSS"
+                            aria-label={t('自定义 CSS', 'Custom CSS')}
                             value={appearance.customCss}
                             onChange={(e) => {
                                 setAppearance({ customCss: e.target.value });
@@ -261,22 +313,29 @@ export function AdvancedPanel() {
                                     setCssWarn(null);
                                 }
                             }}
-                            onBlur={(e) => setCssWarn(validateCss(e.target.value))}
+                            onBlur={(e) => setCssWarn(validateCss(e.target.value, t))}
                             maxLength={50000}
                             spellCheck={false}
-                            placeholder={
-                                '/* 例如：放大侧栏字号 */\n.text-sidebar-foreground { font-size: 1.05em; }'
-                            }
+                            placeholder={t(
+                                '/* 例如：放大侧栏字号 */\n.text-sidebar-foreground { font-size: 1.05em; }',
+                                '/* For example: enlarge sidebar text */\n.text-sidebar-foreground { font-size: 1.05em; }',
+                            )}
                             className="h-64 resize-y rounded-[4px] bg-transparent p-3 font-mono text-base leading-relaxed md:text-[12px]"
                         />
                         {cssWarn && (
-                            <p role="alert" className="flex items-start gap-1.5 text-xs text-warning">
+                            <p
+                                role="alert"
+                                className="flex items-start gap-1.5 text-xs text-warning"
+                            >
                                 <AlertTriangle className="mt-px size-3.5 shrink-0" /> {cssWarn}
                             </p>
                         )}
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-meta text-muted-foreground">
-                                {appearance.customCss.length} / 50000 字符
+                                {t(
+                                    `${appearance.customCss.length} / 50000 字符`,
+                                    `${appearance.customCss.length} / 50000 characters`,
+                                )}
                             </span>
                             <Button
                                 variant="ghost"
@@ -288,22 +347,26 @@ export function AdvancedPanel() {
                                 disabled={!appearance.customCss}
                                 className="text-destructive hover:text-destructive"
                             >
-                                <Trash2 className="size-4" /> 清空
+                                <Trash2 className="size-4" /> {t('清空', 'Clear')}
                             </Button>
                         </div>
                         <details className="text-xs text-muted-foreground">
                             <summary className="min-h-11 cursor-pointer py-3 font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                临时停用自定义样式
+                                {t('临时停用自定义样式', 'Temporarily disable custom styles')}
                             </summary>
                             <p className="max-w-prose leading-relaxed">
-                                在地址后加 <code className="font-mono">?safe-mode=1</code>{' '}
-                                可临时禁用自定义 CSS；保存的内容不会被删除。
+                                {t('在地址后加 ', 'Add ')}
+                                <code className="font-mono">?safe-mode=1</code>
+                                {t(
+                                    ' 可临时禁用自定义 CSS；保存的内容不会被删除。',
+                                    ' to the address to disable custom CSS temporarily; saved content is kept.',
+                                )}
                             </p>
                         </details>
                     </div>
                 </Group>
             </fieldset>
-            <Group title="界面配置" icon={Download}>
+            <Group title={t('界面配置', 'UI configuration')} icon={Download}>
                 <input
                     ref={fileRef}
                     type="file"
@@ -311,10 +374,16 @@ export function AdvancedPanel() {
                     onChange={onImportFile}
                     className="hidden"
                 />
-                <SettingRow label="导出与导入" hint="外观、布局与自定义 CSS；背景图片需重新上传。">
+                <SettingRow
+                    label={t('导出与导入', 'Export and import')}
+                    hint={t(
+                        '外观、布局与自定义 CSS；背景图片需重新上传。',
+                        'Appearance, layout and custom CSS; background images must be uploaded again.',
+                    )}
+                >
                     <div className="flex flex-wrap items-center gap-2">
                         <Button variant="glass" size="sm" onClick={onExport} disabled={busy}>
-                            <Download className="size-4" /> 导出
+                            <Download className="size-4" /> {t('导出', 'Export')}
                         </Button>
                         <Button
                             variant="glass"
@@ -327,11 +396,17 @@ export function AdvancedPanel() {
                             ) : (
                                 <Upload className="size-4" />
                             )}
-                            导入
+                            {t('导入', 'Import')}
                         </Button>
                     </div>
                 </SettingRow>
-                <SettingRow label="恢复默认" hint="重置外观、布局、导航与自定义 CSS。">
+                <SettingRow
+                    label={t('恢复默认', 'Restore defaults')}
+                    hint={t(
+                        '重置外观、布局、导航与自定义 CSS。',
+                        'Reset appearance, layout, navigation and custom CSS.',
+                    )}
+                >
                     <Button
                         variant="ghost"
                         size="sm"
@@ -339,7 +414,7 @@ export function AdvancedPanel() {
                         disabled={busy}
                         className="text-destructive hover:text-destructive"
                     >
-                        <RotateCcw className="size-4" /> 重置全部
+                        <RotateCcw className="size-4" /> {t('重置全部', 'Reset all')}
                     </Button>
                 </SettingRow>
                 {msg && (
@@ -358,9 +433,13 @@ export function AdvancedPanel() {
             <ConfirmDialog
                 open={confirmReset}
                 onOpenChange={setConfirmReset}
-                title="重置全部界面配置"
-                description="将外观、仪表盘布局、导航与自定义 CSS 全部恢复为默认。此操作不可撤销。"
-                confirmText="重置"
+                title={t('重置全部界面配置', 'Reset all UI configuration')}
+                description={t(
+                    '将外观、仪表盘布局、导航与自定义 CSS 全部恢复为默认。此操作不可撤销。',
+                    'Restore appearance, dashboard layout, navigation and custom CSS to their defaults. This cannot be undone.',
+                )}
+                confirmText={t('重置', 'Reset')}
+                cancelText={t('取消', 'Cancel')}
                 destructive
                 onConfirm={doReset}
             />
@@ -372,13 +451,17 @@ export function AdvancedPanel() {
                         setPendingImport(null);
                     }
                 }}
-                title="导入并覆盖界面配置？"
+                title={t('导入并覆盖界面配置？', 'Import and overwrite UI configuration?')}
                 description={
                     pendingImport
-                        ? `将使用 ${pendingImport.name} 覆盖当前外观、布局、导航与自定义 CSS，随后重新载入界面。`
+                        ? t(
+                              `将使用 ${pendingImport.name} 覆盖当前外观、布局、导航与自定义 CSS，随后重新载入界面。`,
+                              `Use ${pendingImport.name} to overwrite the current appearance, layout, navigation and custom CSS, then reload the UI.`,
+                          )
                         : ''
                 }
-                confirmText="确认导入"
+                confirmText={t('确认导入', 'Import')}
+                cancelText={t('取消', 'Cancel')}
                 destructive
                 onConfirm={async () => {
                     if (!pendingImport) {

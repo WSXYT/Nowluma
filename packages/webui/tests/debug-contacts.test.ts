@@ -1,6 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createContactList } from '../src/lib/debug-contacts';
+import type * as React from 'react';
+import type * as I18n from '../src/i18n';
+import { useFriends } from '../src/hooks/use-debug-contacts';
+import { hookHost } from './helpers/hook-host';
+import { translator } from '../src/i18n';
+import { contactErrorMessage, createContactList } from '../src/lib/debug-contacts';
 import type { DebugInvokeResult } from '../src/types';
+
+const api = vi.hoisted(() => ({ debug: { invoke: vi.fn() } }));
+const language = vi.hoisted(() => ({ value: 'zh' as I18n.Language }));
+vi.mock('react', async (original) => ({
+    ...(await original<typeof React>()),
+    useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
+}));
+vi.mock('@/lib/api', () => ({ useApi: () => api }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator(language.value) };
+});
 
 function deferred() {
     let resolve!: (result: DebugInvokeResult) => void;
@@ -16,11 +33,50 @@ const success = (nickname: string): DebugInvokeResult => ({
 });
 
 beforeEach(() => {
+    language.value = 'zh';
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+});
 
 describe('debug contact lists', () => {
+    it('retains an in-flight contact read and selection when language changes', async () => {
+        const host = hookHost();
+        const pending = Promise.withResolvers<DebugInvokeResult>();
+        api.debug.invoke.mockReset().mockReturnValue(pending.promise);
+        host.render(() => useFriends('language-account'));
+        expect(api.debug.invoke).toHaveBeenCalledOnce();
+        language.value = 'en';
+        expect(host.render(() => useFriends('language-account')).loading).toBe(true);
+        expect(api.debug.invoke).toHaveBeenCalledOnce();
+        pending.resolve(success('原样昵称'));
+
+        for (let index = 0; index < 6; index++) {
+            await Promise.resolve();
+        }
+
+        const loaded = host.render(() => useFriends('language-account'));
+        expect(loaded.loading).toBe(false);
+        expect(loaded.items[0]).toMatchObject({ value: '123', label: '原样昵称' });
+        expect(api.debug.invoke).toHaveBeenCalledOnce();
+        api.debug.invoke.mockResolvedValue({ status: 'failed' });
+        loaded.refresh();
+
+        for (let index = 0; index < 6; index++) {
+            await Promise.resolve();
+        }
+
+        expect(host.render(() => useFriends('language-account')).error).toBe(
+            'Could not load contacts',
+        );
+        language.value = 'zh';
+        expect(host.render(() => useFriends('language-account')).error).toBe('加载失败');
+        expect(api.debug.invoke).toHaveBeenCalledTimes(2);
+        host.unmount();
+    });
+
     it('keeps account state separate and ignores a response after leaving its list', async () => {
         const previous = deferred();
         const invoke = vi
@@ -95,11 +151,27 @@ describe('debug contact lists', () => {
         const list = createContactList(invoke, 'friends', 'invalid-account');
         await list.refresh();
         await list.refresh();
-        expect(list.getSnapshot()).toMatchObject({ loading: false, error: '联系人列表格式无效' });
+        expect(list.getSnapshot().loading).toBe(false);
+        expect(contactErrorMessage(list.getSnapshot().error)).toBe('联系人列表格式无效');
         expect(list.getSnapshot().items[0].label).toBe('retained');
         await list.refresh(false);
         expect(list.getSnapshot().error).toBeNull();
         expect(invoke).toHaveBeenCalledTimes(2);
+    });
+
+    it('localizes contact validation but retains server wording', async () => {
+        const wording = '联系人 ID 格式无效';
+        const invoke = vi
+            .fn()
+            .mockResolvedValueOnce({ status: 'ok', data: [{ user_id: {} }] })
+            .mockResolvedValueOnce({ status: 'failed', wording });
+        const list = createContactList(invoke, 'friends', 'error-account');
+        await list.refresh();
+        expect(contactErrorMessage(list.getSnapshot().error, translator('en'))).toBe(
+            'Invalid contact ID format',
+        );
+        await list.refresh();
+        expect(contactErrorMessage(list.getSnapshot().error, translator('en'))).toBe(wording);
     });
 
     it('does not request contacts without an account or group selection', async () => {

@@ -1,7 +1,14 @@
 import { assetName } from '@nowluma/common/release-assets';
 import { parseVersion } from '@nowluma/common/semver';
 import type { UpdateSourceConfig } from '@nowluma/common/update-source';
-import { RELEASE_ROOT, sourceUrls } from './sources';
+import {
+    GITHUB_ORIGIN,
+    RELEASE_API_ROOT,
+    RELEASE_PATH,
+    RELEASE_ROOT,
+    releaseDownloadPath,
+    sourceUrls,
+} from './sources';
 
 export { assetName } from '@nowluma/common/release-assets';
 
@@ -56,13 +63,15 @@ export function parseLatestReleasePage(html: string) {
         throw new Error('发布页面缺少版本信息');
     }
 
-    const url = new URL(canonical, 'https://github.com');
-    const tag = /^\/WSXYT\/Nowluma\/releases\/tag\/([^/]+)$/.exec(url.pathname)?.[1];
-    const decoded = tag && decodeURIComponent(tag);
+    const url = new URL(canonical, GITHUB_ORIGIN);
+    const tagPrefix = `${RELEASE_PATH}/tag/`;
+    // GitHub emits the canonical repository spelling even via a redirect.
+    const tag = url.pathname.startsWith(tagPrefix) ? url.pathname.slice(tagPrefix.length) : '';
+    const decoded = tag && !tag.includes('/') ? decodeURIComponent(tag) : undefined;
     const version = decoded?.startsWith('v') ? decoded.slice(1) : undefined;
     const parsed = parseVersion(version);
 
-    if (url.origin !== 'https://github.com' || !parsed || parsed.prerelease.length) {
+    if (url.origin !== GITHUB_ORIGIN || !parsed || parsed.prerelease.length) {
         throw new Error('发布页面不是 Nowluma 正式版本');
     }
 
@@ -78,15 +87,14 @@ export function parseReleaseAssetsPage(html: string, version: string) {
 
     for (const row of html.match(/<li\b[^>]*>[\s\S]*?<\/li>/gi) ?? []) {
         const links = row.match(/<a\b[^>]*>/gi) ?? [];
-        const name = expected.find((candidate) =>
-            links.some((link) => {
+        const name = expected.find((candidate) => {
+            const downloadPath = releaseDownloadPath(version, candidate);
+            const downloadUrl = `${GITHUB_ORIGIN}${downloadPath}`;
+            return links.some((link) => {
                 const href = attribute(link, 'href');
-                return (
-                    href === `/WSXYT/Nowluma/releases/download/v${version}/${candidate}` ||
-                    href === `${RELEASE_ROOT}/download/v${version}/${candidate}`
-                );
-            }),
-        );
+                return href === downloadPath || href === downloadUrl;
+            });
+        });
 
         if (!name) {
             continue;
@@ -125,7 +133,7 @@ export async function fetchRelease(
     userAgent = 'Nowluma',
     timeoutMs = 8_000,
 ): Promise<ReleaseResult> {
-    const apiUrl = `https://api.github.com/repos/WSXYT/Nowluma/releases/${version ? `tags/v${version}` : 'latest'}`;
+    const apiUrl = `${RELEASE_API_ROOT}/${version ? `tags/v${version}` : 'latest'}`;
     let primaryError: unknown;
 
     try {

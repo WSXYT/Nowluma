@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UpdateSourceConfig } from '@nowluma/common/update-source';
 import {
-    assetName,
     fetchRelease,
     parseLatestReleasePage,
     parseReleaseAssetsPage,
@@ -9,10 +8,11 @@ import {
 
 const direct: UpdateSourceConfig = { mode: 'direct', mirror: '', mirrors: [] };
 const latest =
-    '<meta property="og:url" content="https://github.com/WSXYT/Nowluma/releases/tag/v2.0.1">';
+    '<meta property="og:url" content="https://github.com/NowLuma/NowLuma/releases/tag/v2.0.1">';
 const digest = `sha256:${'a'.repeat(64)}`;
-const name = assetName('2.0.1', 'win32-x64');
-const row = `<li><a href="/WSXYT/Nowluma/releases/download/v2.0.1/${name}">${name}</a><clipboard-copy value="${digest}"></clipboard-copy></li>`;
+const name = 'Nowluma-v2.0.1-win-x64-lite.zip';
+const assetPath = `/NowLuma/NowLuma/releases/download/v2.0.1/${name}`;
+const row = `<li><a href="${assetPath}">${name}</a><clipboard-copy value="${digest}"></clipboard-copy></li>`;
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -20,7 +20,7 @@ describe('existing GitHub release pages', () => {
     it('reads the canonical stable release without a new metadata asset', () => {
         expect(parseLatestReleasePage(latest)).toEqual({
             tag_name: 'v2.0.1',
-            html_url: 'https://github.com/WSXYT/Nowluma/releases/tag/v2.0.1',
+            html_url: 'https://github.com/NowLuma/NowLuma/releases/tag/v2.0.1',
         });
         expect(parseLatestReleasePage(latest.replace('https://github.com', '')).tag_name).toBe(
             'v2.0.1',
@@ -30,27 +30,48 @@ describe('existing GitHub release pages', () => {
     it.each([
         '<html>please sign in</html>',
         latest.replace('github.com', 'unrelated.example'),
-        latest.replace('/WSXYT/Nowluma/', '/other/project/'),
+        latest.replace('/NowLuma/NowLuma/', '/other/NowLuma/'),
+        latest.replace('/NowLuma/NowLuma/', '/NowLuma/other/'),
+        latest.replace('/NowLuma/NowLuma/', '/WSXYT/Nowluma/'),
+        latest.replace('/NowLuma/NowLuma/', '/nowluma/nowluma/'),
+        latest.replace('/tag/v2.0.1', ''),
+        latest.replace('v2.0.1', 'v2.0.1/extra'),
         latest.replace('v2.0.1', 'v02.0.1'),
         latest.replace('v2.0.1', 'v2.0.1-rc.1'),
     ])('rejects non-release or invalid version pages', (html) => {
         expect(() => parseLatestReleasePage(html)).toThrow();
     });
 
-    it('matches an asset with its own digest, ignoring rounded HTML sizes', () => {
-        expect(parseReleaseAssetsPage(row, '2.0.1')).toEqual({
-            tag_name: 'v2.0.1',
-            assets: [{ name, size: null, digest }],
-        });
+    it.each(['', 'https://github.com'])(
+        'matches an asset and digest in the same row with URL origin %j',
+        (origin) => {
+            const html = row.replace(assetPath, `${origin}${assetPath}`);
+            expect(parseReleaseAssetsPage(html, '2.0.1')).toEqual({
+                tag_name: 'v2.0.1',
+                assets: [{ name, size: null, digest }],
+            });
+        },
+    );
+
+    it.each([
+        '/other/NowLuma',
+        '/NowLuma/other',
+        '/WSXYT/Nowluma',
+        '/nowluma/nowluma',
+        'https://other.example/NowLuma/NowLuma',
+    ])('rejects an otherwise matching asset from %s', (repository) => {
+        const html = row.replace('/NowLuma/NowLuma', repository);
+        expect(() => parseReleaseAssetsPage(html, '2.0.1')).toThrow('没有可验证的更新包');
     });
 
     it.each([
         row.replace('v2.0.1/', 'v2.0.0/'),
+        row.replaceAll('Nowluma-v', 'NowLuma-v'),
         row.replace(digest, 'unavailable'),
         row + row,
         row.replace(`<clipboard-copy value="${digest}"></clipboard-copy>`, '') +
             `<li><clipboard-copy value="${digest}"></clipboard-copy></li>`,
-    ])('rejects absent, ambiguous or neighbouring checksum data', (html) => {
+    ])('rejects a wrong tag/name or missing, ambiguous or neighbouring checksums', (html) => {
         expect(() => parseReleaseAssetsPage(html, '2.0.1')).toThrow();
     });
 
@@ -66,8 +87,8 @@ describe('existing GitHub release pages', () => {
             data: { tag_name: 'v2.0.1' },
         });
         expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-            'https://api.github.com/repos/WSXYT/Nowluma/releases/latest',
-            'https://github.com/WSXYT/Nowluma/releases/latest',
+            'https://api.github.com/repos/NowLuma/NowLuma/releases/latest',
+            'https://github.com/NowLuma/NowLuma/releases/latest',
         ]);
     });
 
@@ -95,6 +116,12 @@ describe('existing GitHub release pages', () => {
             fromPage: true,
             data: { assets: [{ name, digest }] },
         });
+        expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+            'https://api.github.com/repos/NowLuma/NowLuma/releases/tags/v2.0.1',
+            'https://github.com/NowLuma/NowLuma/releases/expanded_assets/v2.0.1',
+            'https://bad.example/https://github.com/NowLuma/NowLuma/releases/expanded_assets/v2.0.1',
+            'https://working.example/https://github.com/NowLuma/NowLuma/releases/expanded_assets/v2.0.1',
+        ]);
         expect(fetchMock.mock.calls.slice(1).every(([, options]) => options?.signal?.aborted)).toBe(
             true,
         );
@@ -102,7 +129,7 @@ describe('existing GitHub release pages', () => {
 
     it('keeps direct release lookup when the pinned download mirror cannot serve pages', async () => {
         const fetchMock = vi.fn<typeof fetch>(async (url) =>
-            String(url) === 'https://github.com/WSXYT/Nowluma/releases/latest'
+            String(url) === 'https://github.com/NowLuma/NowLuma/releases/latest'
                 ? new Response(latest)
                 : new Response('blocked', { status: 403 }),
         );

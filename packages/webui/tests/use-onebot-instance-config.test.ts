@@ -1,16 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useOneBotInstanceConfig } from '../src/hooks/use-onebot-instance-config';
+import type * as I18n from '../src/i18n';
 import { normalizeOneBotConfig } from '../src/lib/onebot-config';
 import type { ConfigSaveResult } from '../src/lib/api/types';
 import { hookHost } from './helpers/hook-host';
 
 const api = vi.hoisted(() => ({ config: { get: vi.fn(), save: vi.fn() } }));
+const language = vi.hoisted(() => ({ value: 'en' as I18n.Language }));
 const onSelectedUinChange = vi.fn();
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
 vi.mock('@/lib/api', () => ({ useApi: () => api }));
 vi.mock('@/contexts/ActionFeedbackContext', () => ({
     useActionFeedback: () => ({ runAction: (_options: unknown, run: () => unknown) => run() }),
 }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator(language.value) };
+});
 
 const original = normalizeOneBotConfig({});
 const edited = { ...original, historySync: { enabled: true } };
@@ -35,6 +41,7 @@ async function loaded() {
 }
 
 beforeEach(() => {
+    language.value = 'en';
     vi.useFakeTimers();
     vi.stubGlobal('window', { setTimeout, clearTimeout });
     host = hookHost();
@@ -51,6 +58,26 @@ afterEach(() => {
 });
 
 describe('useOneBotInstanceConfig persistence', () => {
+    it('keeps an in-flight save and loaded draft when language changes', async () => {
+        const config = await loaded();
+        const pending = Promise.withResolvers<ConfigSaveResult>();
+        api.config.save.mockReturnValue(pending.promise);
+        const writing = config.save(edited);
+        language.value = 'zh';
+        const switched = render();
+        expect(switched.config).toBe(original);
+        expect(switched.saveStatusTone).toBe('saving');
+        expect(switched.saveStatus).toBe('保存中…');
+        expect(api.config.get).toHaveBeenCalledOnce();
+        expect(api.config.save).toHaveBeenCalledOnce();
+        pending.resolve(saved());
+        await writing;
+        expect(render().config).toBe(edited);
+        expect(render().saveStatus).toBe('已保存并应用');
+        expect(api.config.get).toHaveBeenCalledOnce();
+        expect(api.config.save).toHaveBeenCalledOnce();
+    });
+
     it('rejects a refused write and keeps the original configuration and error', async () => {
         const config = await loaded();
         api.config.save.mockResolvedValue(saved(original, { saved: false, message: '磁盘已满' }));
@@ -94,8 +121,8 @@ describe('useOneBotInstanceConfig persistence', () => {
         expect(next.config).toBe(edited);
         expect(next.dirty).toBe(false);
         expect(next.saveStatusTone).toBe('warning');
-        expect(next.saveStatus).toContain('http-a：端口占用');
-        expect(next.saveStatus).toContain('ws-b：关闭超时');
+        expect(next.saveStatus).toContain('http-a: 端口占用');
+        expect(next.saveStatus).toContain('ws-b: 关闭超时');
         expect(api.config.save).toHaveBeenCalledOnce();
     });
 
@@ -112,7 +139,7 @@ describe('useOneBotInstanceConfig persistence', () => {
         const next = render();
         expect(next.config).toBe(newer);
         expect(next.dirty).toBe(true);
-        expect(next.saveStatus).toContain('当前修改待保存');
+        expect(next.saveStatus).toContain('New changes are unsaved');
     });
 
     it('does not let a late save overwrite a newly selected account', async () => {

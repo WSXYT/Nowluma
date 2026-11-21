@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
+import { useT } from '@/i18n';
 
 const CROSSFADE = {
     type: 'spring',
@@ -84,6 +85,7 @@ export function SkeletonSwap({
 }: SkeletonSwapProps) {
     const { showSkeleton } = useSkeletonSwap({ ready, delay, minVisible });
     const reduced = useReducedMotionConfig();
+    const t = useT();
 
     const shell = useRef<HTMLDivElement>(null);
     const body = useRef<HTMLDivElement>(null);
@@ -179,7 +181,7 @@ export function SkeletonSwap({
 
             {label ? (
                 <span role="status" className="sr-only">
-                    {ready ? `${label} loaded` : ''}
+                    {ready ? t(`${label}已加载`, `${label} loaded`) : ''}
                 </span>
             ) : null}
         </div>

@@ -7,6 +7,7 @@
 // actions are short operations; save settlement still controls dismissal.
 
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useT, type Translate } from '@/i18n';
 import {
     ArrowLeftRight,
     ArrowUpRight,
@@ -67,6 +68,7 @@ interface NodeEditDialogProps<K extends NetworkKind> {
 }
 
 export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps<K>) {
+    const t = useT();
     const { open, onOpenChange, kind, initial, isEdit, otherNames, uin, onSubmit } = props;
     const tab = NETWORK_TABS[kind];
     const Icon: LucideIcon = KIND_ICON[kind];
@@ -96,6 +98,7 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                       draft.accessToken ?? '',
                       [uin, draft.name ?? '', kind, inbound?.host ?? '', inbound?.port ?? 0],
                       allowEmptyToken,
+                      t,
                   )
                 : undefined,
         [
@@ -107,6 +110,7 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
             inbound?.port,
             kind,
             uin,
+            t,
         ],
     );
 
@@ -131,17 +135,19 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                     <span className="grid size-8 place-items-center text-muted-foreground">
                         <Icon className="size-4" />
                     </span>
-                    {isEdit ? `编辑 ${tab.noun}` : `新建 ${tab.noun}`}
+                    {isEdit
+                        ? t(`编辑 ${tab.noun(t)}`, `Edit ${tab.noun(t)}`)
+                        : t(`新建 ${tab.noun(t)}`, `Add ${tab.noun(t)}`)}
                 </span>
             }
-            description={tab.description}
-            closeLabel="关闭节点编辑弹窗"
+            description={tab.description(t)}
+            closeLabel={t('关闭节点编辑弹窗', 'Close connection editor')}
             maxWidth={576}
             maxHeight="calc(100dvh - 2rem)"
             footer={
                 <>
                     <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('取消', 'Cancel')}
                     </Button>
                     <Button
                         variant="glass"
@@ -156,7 +162,9 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                                 onOpenChange(false);
                             } catch (error) {
                                 setSaveError(
-                                    error instanceof Error ? error.message : '保存连接失败',
+                                    error instanceof Error
+                                        ? error.message
+                                        : t('保存连接失败', 'Could not save connection'),
                                 );
                             } finally {
                                 setBusy(false);
@@ -164,7 +172,11 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                         }}
                     >
                         {busy && <Loader2 className="size-4 animate-spin" />}
-                        {busy ? '保存中…' : isEdit ? '保存连接' : '添加连接'}
+                        {busy
+                            ? t('保存中…', 'Saving…')
+                            : isEdit
+                              ? t('保存连接', 'Save connection')
+                              : t('添加连接', 'Add connection')}
                     </Button>
                 </>
             }
@@ -180,9 +192,14 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
             <fieldset disabled={busy} className="flex min-w-0 flex-col gap-5">
                 <div className="flex min-w-0 items-center justify-between gap-4 border-b border-border py-3">
                     <div className="min-w-0">
-                        <Label className="text-sm font-medium text-foreground">启用</Label>
+                        <Label className="text-sm font-medium text-foreground">
+                            {t('启用', 'Enabled')}
+                        </Label>
                         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                            关闭后保存即可保留配置但不启动该节点
+                            {t(
+                                '关闭后保存即可保留配置但不启动该节点',
+                                'Save with this off to keep the settings without starting the connection.',
+                            )}
                         </p>
                     </div>
                     <ToggleSwitch
@@ -190,22 +207,22 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                         onChange={(v) =>
                             patch({ enabled: v ? undefined : false } as Partial<AnyAdapter<K>>)
                         }
-                        ariaLabel="启用"
+                        ariaLabel={t('启用', 'Enabled')}
                     />
                 </div>
 
-                <Section caption="连接">
+                <Section caption={t('连接', 'Connection')}>
                     <div className="flex min-w-0 flex-col gap-3">
                         <Field
-                            label="名称"
-                            placeholder="自定义"
+                            label={t('名称', 'Name')}
+                            placeholder={t('自定义', 'Custom')}
                             value={draft.name}
                             onChange={(v) => patch({ name: v } as Partial<AnyAdapter<K>>)}
                             error={
                                 blankName
-                                    ? '请填写名称'
+                                    ? t('请填写名称', 'Enter a name')
                                     : duplicateName
-                                      ? '名称与其它节点重复'
+                                      ? t('名称与其它节点重复', 'Another connection has this name')
                                       : undefined
                             }
                         />
@@ -213,14 +230,20 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                     </div>
                 </Section>
 
-                <Section caption="鉴权">
+                <Section caption={t('鉴权', 'Authentication')}>
                     <div className="min-w-0">
                         <TokenField
-                            label="授权 Token"
+                            label={t('授权 Token', 'Access token')}
                             placeholder={
                                 isInboundServer
-                                    ? '留空则关闭鉴权（监听本机或从本机打开页面时可保存）'
-                                    : '按对端要求填写'
+                                    ? t(
+                                          '留空则关闭鉴权（监听本机或从本机打开页面时可保存）',
+                                          'Leave blank to disable authentication (allowed for a local listener or when viewing locally)',
+                                      )
+                                    : t(
+                                          '按对端要求填写',
+                                          'Enter the token required by the remote endpoint',
+                                      )
                             }
                             value={draft.accessToken}
                             onChange={(v) =>
@@ -236,12 +259,15 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                     </div>
                 </Section>
 
-                <Section caption="行为">
+                <Section caption={t('行为', 'Behavior')}>
                     <div className="divide-y divide-border/60">
                         {isHttpServer && (
                             <SettingRow
-                                label="启用 WebSocket"
-                                desc="复用当前 HTTP 端口和授权 Token 接收 WebSocket 连接"
+                                label={t('启用 WebSocket', 'Enable WebSocket')}
+                                desc={t(
+                                    '复用当前 HTTP 端口和授权 Token 接收 WebSocket 连接',
+                                    'Accept WebSocket connections on the same HTTP port with the same access token.',
+                                )}
                             >
                                 <ToggleSwitch
                                     value={(draft as HttpServerNetwork).enableWebSocket === true}
@@ -250,30 +276,42 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                                             AnyAdapter<K>
                                         >)
                                     }
-                                    ariaLabel="启用 WebSocket"
+                                    ariaLabel={t('启用 WebSocket', 'Enable WebSocket')}
                                 />
                             </SettingRow>
                         )}
 
                         {isHttpServer && (
                             <SettingRow
-                                label="启用 SSE"
-                                desc="通过当前 HTTP 路径下的 /_events 持续推送事件，支持短暂断线重放"
+                                label={t('启用 SSE', 'Enable SSE')}
+                                desc={t(
+                                    '通过当前 HTTP 路径下的 /_events 持续推送事件，支持短暂断线重放',
+                                    'Stream events at /_events under the current HTTP path and replay events after brief disconnects.',
+                                )}
                             >
                                 <ToggleSwitch
                                     value={(draft as HttpServerNetwork).enableSse === true}
                                     onChange={(v) => patch({ ...draft, enableSse: v })}
-                                    ariaLabel="启用 SSE"
+                                    ariaLabel={t('启用 SSE', 'Enable SSE')}
                                 />
                             </SettingRow>
                         )}
 
-                        <SettingRow label="消息格式" desc="数组为标准 OneBot 段，CQ 码为兼容字符串">
+                        <SettingRow
+                            label={t('消息格式', 'Message format')}
+                            desc={t(
+                                '数组为标准 OneBot 段，CQ 码为兼容字符串',
+                                'Arrays use standard OneBot segments. CQ codes use the legacy string format.',
+                            )}
+                        >
                             <DropdownSelect
                                 className="w-32"
-                                ariaLabel="消息格式"
+                                ariaLabel={t('消息格式', 'Message format')}
                                 value={(draft.messageFormat ?? 'array') as MessageFormat}
-                                options={FORMAT_OPTIONS}
+                                options={[
+                                    { value: 'array', label: t('数组', 'Array') },
+                                    { value: 'string', label: t('CQ 码', 'CQ codes') },
+                                ]}
                                 onChange={(v) =>
                                     patch({ messageFormat: v } as Partial<AnyAdapter<K>>)
                                 }
@@ -281,10 +319,16 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                         </SettingRow>
 
                         {isWs && (
-                            <SettingRow label="角色" desc="Universal 收发合一，Event / Api 分离">
+                            <SettingRow
+                                label={t('角色', 'Role')}
+                                desc={t(
+                                    'Universal 收发合一，Event / Api 分离',
+                                    'Universal handles both events and API calls. Event and Api separate them.',
+                                )}
+                            >
                                 <DropdownSelect
                                     className="w-32"
-                                    ariaLabel="角色"
+                                    ariaLabel={t('角色', 'Role')}
                                     value={role}
                                     options={WS_ROLE_OPTIONS}
                                     onChange={(v) =>
@@ -295,15 +339,18 @@ export function NodeEditDialog<K extends NetworkKind>(props: NodeEditDialogProps
                         )}
 
                         <SettingRow
-                            label="上报自身消息"
-                            desc="将机器人自己发送的消息也作为 message_sent 事件上报"
+                            label={t('上报自身消息', 'Report own messages')}
+                            desc={t(
+                                '将机器人自己发送的消息也作为 message_sent 事件上报',
+                                'Report messages the bot sends as message_sent events.',
+                            )}
                         >
                             <ToggleSwitch
                                 value={!!draft.reportSelfMessage}
                                 onChange={(v) =>
                                     patch({ reportSelfMessage: v } as Partial<AnyAdapter<K>>)
                                 }
-                                ariaLabel="上报自身消息"
+                                ariaLabel={t('上报自身消息', 'Report own messages')}
                             />
                         </SettingRow>
                     </div>
@@ -357,6 +404,8 @@ interface KindFieldsProps<K extends NetworkKind> {
 }
 
 function KindFields<K extends NetworkKind>({ kind, draft, patch }: KindFieldsProps<K>) {
+    const t = useT();
+
     // Per-branch narrowing — TS can't follow the generic relationship so
     // each arm casts once. Field components receive specific shapes. The WS
     // `role` lives in the behaviour section, so it is intentionally absent here.
@@ -367,26 +416,26 @@ function KindFields<K extends NetworkKind>({ kind, draft, patch }: KindFieldsPro
             <div className="flex flex-col gap-2">
                 <div className="grid gap-3 sm:grid-cols-[1fr_120px_140px]">
                     <Field
-                        label="主机"
+                        label={t('主机', 'Host')}
                         placeholder="127.0.0.1"
                         value={it.host}
                         onChange={(v) => set({ host: v || undefined })}
                     />
                     <Field
-                        label="端口"
+                        label={t('端口', 'Port')}
                         type="number"
                         value={it.port}
                         onChange={(v) => set({ port: Number(v) || 0 })}
                     />
                     <Field
-                        label="路径"
+                        label={t('路径', 'Path')}
                         placeholder="/"
                         value={it.path}
                         onChange={(v) => set({ path: v || undefined })}
                     />
                 </div>
                 {/* The cap only exists for the embedded WebSocket listener. */}
-                {it.enableWebSocket === true ? maxPayloadField(it.maxPayloadBytes, set) : null}
+                {it.enableWebSocket === true ? maxPayloadField(it.maxPayloadBytes, set, t) : null}
             </div>
         );
     }
@@ -397,14 +446,14 @@ function KindFields<K extends NetworkKind>({ kind, draft, patch }: KindFieldsPro
         return (
             <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
                 <Field
-                    label="目标 URL"
+                    label={t('目标 URL', 'Destination URL')}
                     type="url"
                     placeholder="http://..."
                     value={it.url}
                     onChange={(v) => set({ url: v })}
                 />
                 <Field
-                    label="超时 (ms)"
+                    label={t('超时 (ms)', 'Timeout (ms)')}
                     type="number"
                     placeholder="5000"
                     value={it.timeoutMs}
@@ -421,25 +470,25 @@ function KindFields<K extends NetworkKind>({ kind, draft, patch }: KindFieldsPro
             <div className="flex flex-col gap-2">
                 <div className="grid gap-3 sm:grid-cols-[1fr_120px_140px]">
                     <Field
-                        label="主机"
+                        label={t('主机', 'Host')}
                         placeholder="127.0.0.1"
                         value={it.host}
                         onChange={(v) => set({ host: v || undefined })}
                     />
                     <Field
-                        label="端口"
+                        label={t('端口', 'Port')}
                         type="number"
                         value={it.port}
                         onChange={(v) => set({ port: Number(v) || 0 })}
                     />
                     <Field
-                        label="路径"
+                        label={t('路径', 'Path')}
                         placeholder="/"
                         value={it.path}
                         onChange={(v) => set({ path: v || undefined })}
                     />
                 </div>
-                {maxPayloadField(it.maxPayloadBytes, set)}
+                {maxPayloadField(it.maxPayloadBytes, set, t)}
             </div>
         );
     }
@@ -451,20 +500,20 @@ function KindFields<K extends NetworkKind>({ kind, draft, patch }: KindFieldsPro
             <div className="flex flex-col gap-2">
                 <div className="grid gap-3 sm:grid-cols-[1fr_160px_160px]">
                     <Field
-                        label="目标 URL"
+                        label={t('目标 URL', 'Destination URL')}
                         type="url"
                         placeholder="ws://..."
                         value={it.url}
                         onChange={(v) => set({ url: v })}
                     />
                     <Field
-                        label="重连间隔 (ms)"
+                        label={t('重连间隔 (ms)', 'Reconnect interval (ms)')}
                         type="number"
                         value={it.reconnectIntervalMs}
                         onChange={(v) => set({ reconnectIntervalMs: Number(v) || undefined })}
                     />
                 </div>
-                {maxPayloadField(it.maxPayloadBytes, set)}
+                {maxPayloadField(it.maxPayloadBytes, set, t)}
             </div>
         );
     }
@@ -481,12 +530,13 @@ function KindFields<K extends NetworkKind>({ kind, draft, patch }: KindFieldsPro
 function maxPayloadField(
     value: number | undefined,
     set: (patch: { maxPayloadBytes?: number }) => void,
+    t: Translate,
 ) {
     return (
         <div className="flex flex-col gap-2">
             <div className="grid gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
                 <Field
-                    label="单帧上限 (bytes)"
+                    label={t('单帧上限 (bytes)', 'Frame limit (bytes)')}
                     type="number"
                     min={1024}
                     max={2147483648}
@@ -497,10 +547,10 @@ function maxPayloadField(
                 />
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">
-                入站 WebSocket 单帧上限，留空即默认 100 MiB（104857600），有效范围 1024 –
-                2147483648。44.1 kHz 立体声 PCM 语音约 445
-                秒（7:26）就会触顶并断开连接；超长音频应由上游改发 URL/文件或压缩为
-                SILK，调大上限会按帧大小增加内存占用。
+                {t(
+                    '入站 WebSocket 单帧上限，留空即默认 100 MiB（104857600），有效范围 1024 – 2147483648。44.1 kHz 立体声 PCM 语音约 445 秒（7:26）就会触顶并断开连接；超长音频应由上游改发 URL/文件或压缩为 SILK，调大上限会按帧大小增加内存占用。',
+                    'Maximum inbound WebSocket frame size. Leave blank for 100 MiB (104857600 bytes). Valid range: 1024–2147483648 bytes. At the default limit, about 445 seconds (7:26) of 44.1 kHz stereo PCM audio fills a frame and disconnects the socket. For longer audio, send a URL or file reference, or compress it as SILK. Larger limits allow higher memory usage.',
+                )}
             </p>
         </div>
     );
@@ -570,7 +620,7 @@ interface TokenFieldProps {
  * Password-style input for the access token. Hidden by default to keep
  * the value out of over-the-shoulder reads / screenshots; an eye toggle
  * unmasks it and a copy button shoves the current value to the system
- * clipboard with a short "已复制" confirmation flash.
+ * clipboard with a short confirmation flash.
  */
 function TokenField({
     label,
@@ -580,6 +630,7 @@ function TokenField({
     placeholder,
     feedback,
 }: TokenFieldProps) {
+    const t = useT();
     const [visible, setVisible] = useState(false);
     const [copied, setCopied] = useState(false);
     const copiedTimerRef = useRef<number | null>(null);
@@ -630,8 +681,8 @@ function TokenField({
                     variant="outline"
                     size="icon"
                     onClick={onGenerate}
-                    aria-label="生成新的随机令牌"
-                    title="生成新的随机令牌"
+                    aria-label={t('生成新的随机令牌', 'Generate random token')}
+                    title={t('生成新的随机令牌', 'Generate random token')}
                 >
                     <RefreshCw className="size-4" />
                 </Button>
@@ -641,8 +692,8 @@ function TokenField({
                     size="icon"
                     onClick={handleCopy}
                     disabled={!value}
-                    aria-label={copied ? '已复制' : '复制'}
-                    title={copied ? '已复制' : '复制'}
+                    aria-label={copied ? t('已复制', 'Copied') : t('复制', 'Copy token')}
+                    title={copied ? t('已复制', 'Copied') : t('复制', 'Copy token')}
                 >
                     {copied ? (
                         <Check className="size-4 text-success" />
@@ -655,8 +706,8 @@ function TokenField({
                     variant="outline"
                     size="icon"
                     onClick={() => setVisible((v) => !v)}
-                    aria-label={visible ? '隐藏' : '显示'}
-                    title={visible ? '隐藏' : '显示'}
+                    aria-label={visible ? t('隐藏', 'Hide token') : t('显示', 'Show token')}
+                    title={visible ? t('隐藏', 'Hide token') : t('显示', 'Show token')}
                 >
                     {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>
@@ -680,11 +731,6 @@ function TokenField({
         </div>
     );
 }
-
-const FORMAT_OPTIONS: ReadonlyArray<DropdownOption<MessageFormat>> = [
-    { value: 'array', label: '数组' },
-    { value: 'string', label: 'CQ 码' },
-];
 
 const WS_ROLE_OPTIONS: ReadonlyArray<DropdownOption<WsRole>> = [
     { value: 'Universal', label: 'Universal' },

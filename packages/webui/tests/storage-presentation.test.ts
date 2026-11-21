@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { translator } from '../src/i18n';
 import {
     buildLogSettingsPatch,
     formatBytes,
@@ -44,6 +45,17 @@ describe('storage presentation helpers', () => {
         ).toMatchObject({ label: '正常', tone: 'success', percent: 20 });
     });
 
+    it.each([
+        ['degraded', 'Disk logging paused', 'danger'],
+        ['warning', 'Cleanup issue', 'warning'],
+        ['disabled', 'File logging disabled', 'neutral'],
+        ['healthy', 'Near capacity', 'warning'],
+    ] as const)('localizes %s without changing tone or percent', (state, label, tone) => {
+        expect(
+            logStoragePresentation({ state, totalBytes: 81, maxTotalBytes: 100 }, translator('en')),
+        ).toEqual({ label, tone, percent: 81 });
+    });
+
     it('formats byte counts without exposing implementation units', () => {
         expect(formatBytes(0)).toBe('0 B');
         expect(formatBytes(1536)).toBe('1.5 KB');
@@ -54,5 +66,6 @@ describe('storage presentation helpers', () => {
         expect(isAllAccountsConfirmation('清理全部账号')).toBe(true);
         expect(isAllAccountsConfirmation(' 清理全部账号 ')).toBe(false);
         expect(isAllAccountsConfirmation('确认')).toBe(false);
+        expect(isAllAccountsConfirmation('Clear all accounts')).toBe(false);
     });
 });

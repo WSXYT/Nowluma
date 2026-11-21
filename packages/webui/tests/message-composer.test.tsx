@@ -4,6 +4,7 @@ import type * as MotionModule from 'motion/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageComposer } from '../src/components/debug/message-composer';
 import { MessageBuilder } from '../src/components/debug/message-builder';
+import type * as I18n from '../src/i18n';
 import type { Seg } from '../src/components/debug/message-builder';
 import { Dropdown } from '../src/components/interior/dropdown';
 import type { DebugInvokeResult, QQInfo } from '../src/types';
@@ -17,6 +18,10 @@ vi.mock('motion/react', async (original) => ({
     useReducedMotionConfig: () => true,
 }));
 vi.mock('@/lib/api', () => ({ useApi: () => api }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator('en') };
+});
 
 const accounts = [
     { uin: '10001', nickname: 'Account A' },
@@ -46,7 +51,7 @@ function builder(tree: ReactNode) {
 }
 
 function sendButton(tree: ReactNode) {
-    return elements(tree).find((item) => item.props['aria-label'] === '发送消息')!;
+    return elements(tree).find((item) => item.props['aria-label'] === 'Send message')!;
 }
 
 async function flush() {
@@ -101,9 +106,11 @@ describe('MessageComposer account-bound sends', () => {
         expect(accountPicker(busy).disabled).toBe(true);
         expect(targetPicker(busy).props.disabled).toBe(true);
         expect(sendButton(busy).props.disabled).toBe(true);
-        expect(elements(busy).filter((item) => item.type === 'fieldset').every(
-            (item) => item.props.disabled === true,
-        )).toBe(true);
+        expect(
+            elements(busy)
+                .filter((item) => item.type === 'fieldset')
+                .every((item) => item.props.disabled === true),
+        ).toBe(true);
         pending.reject(new Error('连接中断，发送结果未知'));
         await sending;
         await flush();

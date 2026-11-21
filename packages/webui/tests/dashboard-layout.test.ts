@@ -6,6 +6,7 @@ import {
     GRID_WIDGETS,
     migrateOverviewBlocks,
     STAT_TILE_IDS,
+    widgetLabel,
 } from '../src/lib/dashboard-layout';
 
 describe('migrateOverviewBlocks', () => {
@@ -69,6 +70,14 @@ describe('migrateOverviewBlocks', () => {
 });
 
 describe('workspace defaults', () => {
+    it('localizes known card labels without changing persisted or unknown IDs', () => {
+        const en = (_zh: string, translated: string) => translated;
+        expect(widgetLabel('stat:processes')).toBe('QQ 程序');
+        expect(widgetLabel('stat:processes', en)).toBe('QQ processes');
+        expect(widgetLabel('local:external', en)).toBe('local:external');
+        expect(defaultOverviewGrid().find((item) => item.id === 'stat:processes')).toBeDefined();
+    });
+
     it('fits visible widgets in the grid without overlapping their work areas', () => {
         const blocks = defaultOverviewGrid().filter((item) => item.visible);
 

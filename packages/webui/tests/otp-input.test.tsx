@@ -1,8 +1,20 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { OtpInput } from '../src/components/interior/otp-input';
+import { LocaleProvider } from '../src/i18n';
 
 describe('OtpInput official error/hint contract', () => {
+    it('renders the default English label and per-cell positions in English', () => {
+        const markup = renderToStaticMarkup(
+            <LocaleProvider fixed="en">
+                <OtpInput />
+            </LocaleProvider>,
+        );
+
+        expect(markup).toContain('aria-label="Verification code"');
+        expect(markup).toContain('Verification code, character 1 of 6');
+    });
+
     it('shows the hint while error is false', () => {
         const markup = renderToStaticMarkup(
             <OtpInput

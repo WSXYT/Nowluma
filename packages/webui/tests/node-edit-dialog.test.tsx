@@ -2,6 +2,7 @@ import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { NodeEditDialog } from '../src/components/config/node-edit-dialog';
 import { Button } from '../src/components/ui/button';
+import type * as I18n from '../src/i18n';
 import { normalizeOneBotConfig } from '../src/lib/onebot-config';
 import { elements, hookHost } from './helpers/hook-host';
 
@@ -10,6 +11,10 @@ vi.mock('motion/react', async (original) => ({
     ...(await original<typeof import('motion/react')>()),
     useReducedMotionConfig: () => true,
 }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.translator('en') };
+});
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -36,8 +41,12 @@ it('awaits an adapter write and keeps the draft and error visible when it fails'
         onOpenChange,
     };
     const render = () => host.render(() => NodeEditDialog(props));
+    expect(
+        (render().props.title as ReactElement<{ children: ReactNode }>).props.children,
+    ).toContain('Edit HTTP API');
+    expect(render().props.closeLabel).toBe('Close connection editor');
     const nameField = (dialog: ReactNode) =>
-        elements(dialog).find((item) => item.props.label === '名称')!;
+        elements(dialog).find((item) => item.props.label === 'Name')!;
     (nameField(render()).props.onChange as (value: string) => void)('server-draft');
     const saveButton = (dialog: ReactElement<{ footer: ReactNode }>) =>
         elements(dialog.props.footer).find(

@@ -6,7 +6,7 @@ tutorial: index
 
 # Nowluma documentation
 
-Use the console embedded above this chapter to follow its navigation lesson, then choose a reading path below. Practice uses example data, not your QQ account.
+Select **Load simulator** above this chapter to follow the navigation lesson, then choose a reading path below. Practice uses sample data, not your QQ account.
 
 ![Workspace and main navigation with example data](/images/tutorials/overview.png)
 
@@ -49,12 +49,12 @@ Nowluma connects to a running QQ client, exposes the account through OneBot v11,
 
 ## Conventions
 
-- Quoted Chinese text is the exact label on screen; this English guide explains the same controls without inventing a separate UI language.
+- Use the console’s language button to switch between English and Simplified Chinese. The simulator in an English chapter uses English; some quoted labels and figures show the equivalent Chinese interface.
 - Process states: `可加载`, `加载中`, `等待连接`, `等待登录`, `已在线`, `错误`, `已断开`. Endpoint states: `正常`, `注意`, `异常`, `应用失败`, `未启用`.
 - External addresses are examples: `http://127.0.0.1:5700`, `https://bot.example.invalid`, `admin@example.invalid`.
 - “Saved”, “applied” and “connected” are different; see [Three kinds of save result](introduction.md#three-kinds-of-save-result).
 - Figures show the actually rendered example console and current control labels; they do not establish real QQ account acceptance.
-- The site uses VitePress and embeds a chapter-specific guide above each tutorial. Use an HTTP preview or the [published documentation](https://wsxyt.github.io/Nowluma/); opening files with `file://` does not support search or the simulator.
+- Interactive lessons require an HTTP preview or the [published documentation](https://nowluma.github.io/NowLuma/); search and the simulator are unavailable under `file://`.
 
 ## What this documentation does not promise
 

@@ -1,12 +1,21 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
-import { NATIVE_KERNEL_LABEL } from '@nowluma/common/kernel-display';
+import {
+    COMPAT_RISK_TEXT,
+    COMPAT_RISK_TEXT_EN,
+    COMPAT_RISK_VERSION,
+    NATIVE_KERNEL_LABEL,
+    NATIVE_KERNEL_LABEL_EN,
+    REWRITE_KERNEL_LABEL,
+    REWRITE_KERNEL_UNAVAILABLE_REASON,
+} from '@nowluma/common/kernel-display';
 import { Modal } from '@/components/interior/modal';
 import { Button } from '@/components/ui/button';
 import { actionErrorMessage } from '@/contexts/ActionFeedbackContext';
 import type { KernelCatalog, KernelChoiceInput, KernelId } from '@/lib/api';
-import type { PendingKernelChoice } from '@/hooks/use-kernel-choice';
+import { kernelErrorMessage, type PendingKernelChoice } from '@/hooks/use-kernel-choice';
 import { cn } from '@/lib/utils';
+import { useT } from '@/i18n';
 
 function KernelOptions({
     catalog,
@@ -19,13 +28,27 @@ function KernelOptions({
     onSelect?: (kernel: KernelId) => void;
     disabled?: boolean;
 }) {
+    const t = useT();
     const name = useId();
 
     return (
         <fieldset disabled={disabled} className="grid gap-3 sm:grid-cols-2">
-            <legend className="sr-only">选择接入内核</legend>
+            <legend className="sr-only">{t('选择接入内核', 'Choose a connection kernel')}</legend>
             {catalog.options.map((option) => {
                 const available = option.id === 'compat' && option.available;
+                const label =
+                    option.id === 'compat' && option.label === NATIVE_KERNEL_LABEL
+                        ? t(option.label, NATIVE_KERNEL_LABEL_EN)
+                        : option.id === 'rewrite' && option.label === REWRITE_KERNEL_LABEL
+                          ? t(option.label, 'Rewritten kernel')
+                          : option.label;
+                const reason =
+                    option.id === 'rewrite' && option.reason === REWRITE_KERNEL_UNAVAILABLE_REASON
+                        ? kernelErrorMessage(option.reason, t)
+                        : option.reason ||
+                          (available
+                              ? t('使用随包提供的原生组件', 'Uses the bundled native components')
+                              : t('当前平台尚未验证', 'Not verified on this platform'));
 
                 return (
                     <label
@@ -53,14 +76,15 @@ function KernelOptions({
                             )}
                         >
                             <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
-                                {option.label}
+                                {label}
                                 <span className="rounded-full border border-current/15 px-2 py-0.5 text-micro font-normal">
-                                    {available ? '可选择' : '暂不可用'}
+                                    {available
+                                        ? t('可选择', 'Available')
+                                        : t('暂不可用', 'Unavailable')}
                                 </span>
                             </span>
                             <span className="text-xs leading-relaxed text-muted-foreground">
-                                {option.reason ||
-                                    (available ? '使用随包提供的原生组件' : '当前平台尚未验证')}
+                                {reason}
                             </span>
                         </span>
                     </label>
@@ -80,7 +104,7 @@ export function KernelChoiceForm({
     onConfirm,
     onCancel,
     onStop,
-    submitLabel = '确认并接入',
+    submitLabel,
     onSubmittingChange,
 }: {
     uin: string;
@@ -91,6 +115,7 @@ export function KernelChoiceForm({
     submitLabel?: string;
     onSubmittingChange?: (submitting: boolean) => void;
 }) {
+    const t = useT();
     const riskId = useId();
     const [kernel, setKernel] = useState<KernelId | null>(null);
     const [accepted, setAccepted] = useState(false);
@@ -101,6 +126,10 @@ export function KernelChoiceForm({
         kernel === 'compat' &&
         accepted &&
         catalog.options.some((option) => option.id === 'compat' && option.available);
+    const riskText =
+        catalog.riskVersion === COMPAT_RISK_VERSION && catalog.riskText === COMPAT_RISK_TEXT
+            ? t(COMPAT_RISK_TEXT, COMPAT_RISK_TEXT_EN)
+            : catalog.riskText;
 
     const submit = async (event: FormEvent) => {
         event.preventDefault();
@@ -147,9 +176,12 @@ export function KernelChoiceForm({
                 disabled={submitting}
             />
             <div id={riskId} className="space-y-2 text-sm leading-relaxed">
-                <p>{catalog.riskText}</p>
+                <p>{riskText}</p>
                 <p className="text-xs text-muted-foreground">
-                    风险说明版本 {catalog.riskVersion} · 仅对 QQ {uin} 生效
+                    {t(
+                        `风险说明版本 ${catalog.riskVersion} · 仅对 QQ ${uin} 生效`,
+                        `Risk disclosure version ${catalog.riskVersion} · Applies only to QQ ${uin}`,
+                    )}
                 </p>
             </div>
             <label className="flex min-h-11 items-start gap-3 rounded-xl border border-border bg-card/50 px-4 py-3 text-sm leading-relaxed">
@@ -161,11 +193,16 @@ export function KernelChoiceForm({
                     aria-describedby={riskId}
                     className="mt-1 size-4 shrink-0 accent-current focus-visible:ring-2 focus-visible:ring-ring"
                 />
-                <span>我已阅读并主动确认此账号的{NATIVE_KERNEL_LABEL}使用与法律风险</span>
+                <span>
+                    {t(
+                        `我已阅读并主动确认此账号的${NATIVE_KERNEL_LABEL}使用与法律风险`,
+                        `I have read and explicitly acknowledge the risks of using the ${NATIVE_KERNEL_LABEL_EN} and the legal risks for this account`,
+                    )}
+                </span>
             </label>
             {error ? (
                 <p role="alert" className="text-sm text-destructive">
-                    {error}
+                    {kernelErrorMessage(error, t)}
                 </p>
             ) : null}
             <div className="grid gap-3 sm:flex sm:items-center sm:justify-end">
@@ -176,7 +213,7 @@ export function KernelChoiceForm({
                         disabled={submitting}
                         onClick={onCancel}
                     >
-                        取消
+                        {t('取消', 'Cancel')}
                     </Button>
                 ) : null}
                 {/* Stop can wait for a dispatched save; Cancel must not interrupt it. */}
@@ -188,7 +225,7 @@ export function KernelChoiceForm({
                             void onStop();
                         }}
                     >
-                        停止接入
+                        {t('停止接入', 'Stop connecting')}
                     </Button>
                 ) : null}
                 <Button
@@ -199,10 +236,10 @@ export function KernelChoiceForm({
                     {submitting ? (
                         <>
                             <Loader2 className="size-4 animate-spin" />
-                            保存中…
+                            {t('保存中…', 'Saving…')}
                         </>
                     ) : (
-                        submitLabel
+                        (submitLabel ?? t('确认并接入', 'Confirm and connect'))
                     )}
                 </Button>
             </div>
@@ -217,6 +254,7 @@ export function KernelChoiceDialog({
     choice: PendingKernelChoice;
     onStop?: () => Promise<void>;
 }) {
+    const t = useT();
     const [submitting, setSubmitting] = useState(false);
 
     return (
@@ -227,9 +265,9 @@ export function KernelChoiceDialog({
                     choice.cancel();
                 }
             }}
-            title="选择接入内核"
+            title={t('选择接入内核', 'Choose a connection kernel')}
             description={`${choice.target.nickname || 'QQ'} · QQ ${choice.target.uin}`}
-            closeLabel="取消内核选择"
+            closeLabel={t('取消内核选择', 'Cancel kernel choice')}
             showClose={!submitting}
             closeOnEscape={!submitting}
             closeOnBackdrop={!submitting}

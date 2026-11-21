@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useActionFeedback } from '@/contexts/ActionFeedbackContext';
+import { useT } from '@/i18n';
 import { useApi } from '@/lib/api';
 import type { UpdateStatus } from '@/types';
 
 export function UpdateInstaller({ version }: { version: string | null }) {
+    const t = useT();
+    const tRef = useRef(t);
+
+    useEffect(() => {
+        tRef.current = t;
+    }, [t]);
+
     const api = useApi();
     const { startAction, runAction } = useActionFeedback();
     const [status, setStatus] = useState<UpdateStatus | null>(null);
@@ -22,7 +30,10 @@ export function UpdateInstaller({ version }: { version: string | null }) {
 
         let disposed = false;
         let timer: ReturnType<typeof setTimeout>;
-        const activity = phase === 'downloading' ? startAction({ title: '正在下载更新' }) : null;
+        const activity =
+            phase === 'downloading'
+                ? startAction({ title: tRef.current('正在下载更新', 'Downloading update') })
+                : null;
 
         const poll = async () => {
             try {
@@ -38,9 +49,14 @@ export function UpdateInstaller({ version }: { version: string | null }) {
                 }
 
                 if (next.phase === 'ready') {
-                    activity?.succeed({ title: '更新已就绪', detail: '重启后生效' });
+                    activity?.succeed({
+                        title: tRef.current('更新已就绪', 'Update ready'),
+                        detail: tRef.current('重启后生效', 'Takes effect after restart'),
+                    });
                 } else if (next.phase === 'error') {
-                    activity?.fail(next.message, { title: '更新失败' });
+                    activity?.fail(next.message, {
+                        title: tRef.current('更新失败', 'Update failed'),
+                    });
                 } else if (next.phase === 'downloading') {
                     timer = setTimeout(() => {
                         void poll();
@@ -48,7 +64,9 @@ export function UpdateInstaller({ version }: { version: string | null }) {
                 }
             } catch (caught) {
                 const message = caught instanceof Error ? caught.message : String(caught);
-                activity?.fail(message, { title: '读取更新状态失败' });
+                activity?.fail(message, {
+                    title: tRef.current('读取更新状态失败', 'Failed to read update status'),
+                });
 
                 if (!disposed) {
                     setError(message);
@@ -84,7 +102,9 @@ export function UpdateInstaller({ version }: { version: string | null }) {
             const message = caught instanceof Error ? caught.message : String(caught);
             setError(message);
             setStatus(null);
-            startAction({ title: '下载更新' }).fail(message, { title: '下载失败' });
+            startAction({ title: t('下载更新', 'Download update') }).fail(message, {
+                title: t('下载失败', 'Download failed'),
+            });
         } finally {
             setSubmitting(false);
         }
@@ -93,10 +113,10 @@ export function UpdateInstaller({ version }: { version: string | null }) {
     const restart = async () => {
         await runAction(
             {
-                title: '正在重启',
-                successTitle: '已请求重启',
-                successDetail: '稍后刷新页面',
-                errorTitle: '重启失败',
+                title: t('正在重启', 'Restarting'),
+                successTitle: t('已请求重启', 'Restart requested'),
+                successDetail: t('稍后刷新页面', 'Refresh the page shortly'),
+                errorTitle: t('重启失败', 'Restart failed'),
             },
             async () => {
                 setStatus(await api.update.restart());
@@ -126,16 +146,22 @@ export function UpdateInstaller({ version }: { version: string | null }) {
             {status?.phase === 'downloading' && (
                 <p className="flex items-center gap-2 text-sm">
                     <Loader2 className="size-4 animate-spin" />
-                    正在下载 v{status.version}
+                    {t(`正在下载 v${status.version}`, `Downloading v${status.version}`)}
                 </p>
             )}
-            {status?.phase === 'restarting' && <p className="text-sm">正在重启，稍后刷新页面。</p>}
+            {status?.phase === 'restarting' && (
+                <p className="text-sm">
+                    {t('正在重启，稍后刷新页面。', 'Restarting; refresh the page shortly.')}
+                </p>
+            )}
             {status?.phase === 'ready' && (
                 <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-sm">v{status.version} 已就绪</span>
+                    <span className="text-sm">
+                        {t(`v${status.version} 已就绪`, `v${status.version} ready`)}
+                    </span>
                     <Button size="sm" variant="glass" onClick={() => setConfirmRestart(true)}>
                         <RefreshCw className="size-4" />
-                        重启更新
+                        {t('重启更新', 'Restart to update')}
                     </Button>
                 </div>
             )}
@@ -150,15 +176,19 @@ export function UpdateInstaller({ version }: { version: string | null }) {
                     disabled={submitting}
                 >
                     <Download className="size-4" />
-                    下载更新
+                    {t('下载更新', 'Download update')}
                 </Button>
             )}
             <ConfirmDialog
                 open={confirmRestart}
                 onOpenChange={setConfirmRestart}
-                title="重启并更新？"
-                description="连接将暂时断开，配置与数据保留。"
-                confirmText="重启更新"
+                title={t('重启并更新？', 'Restart and update?')}
+                description={t(
+                    '连接将暂时断开，配置与数据保留。',
+                    'The connection drops temporarily; configuration and data are kept.',
+                )}
+                confirmText={t('重启更新', 'Restart to update')}
+                cancelText={t('取消', 'Cancel')}
                 onConfirm={restart}
             />
         </div>

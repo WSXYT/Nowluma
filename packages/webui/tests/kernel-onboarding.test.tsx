@@ -10,6 +10,7 @@ import { DisplayEffectsOnboardingStep } from '../src/components/display-effects'
 import { buildRequiredOnboardingStepIds } from '../src/components/pages/onboarding-steps';
 import { demoKernelCatalog, demoProcess } from '../src/demo/fixtures';
 import type { ApiClient, KernelChoiceInput } from '../src/lib/api/types';
+import type * as I18n from '../src/i18n';
 import { elements, hookHost } from './helpers/hook-host';
 
 const mocks = vi.hoisted(() => ({
@@ -36,6 +37,10 @@ const mocks = vi.hoisted(() => ({
     },
 }));
 vi.mock('react', async (original) => ({ ...(await original<typeof import('react')>()) }));
+vi.mock('@/i18n', async (original) => {
+    const locale = await original<typeof I18n>();
+    return { ...locale, useT: () => locale.defaultTranslate };
+});
 vi.mock('@/lib/api', async (load) => ({
     ...(await load<Record<string, unknown>>()),
     useApi: () => mocks.api,
@@ -322,10 +327,8 @@ describe('KernelOnboardingStep account choice', () => {
         );
         expect(form()).toBeUndefined();
         expect(
-            elements(step()).some(
-                (element) =>
-                    Array.isArray(element.props.children) &&
-                    element.props.children.includes(NATIVE_KERNEL_LABEL),
+            elements(step()).some((element) =>
+                String(element.props.children).includes(NATIVE_KERNEL_LABEL),
             ),
         ).toBe(true);
         expect(mocks.api.kernel.save).not.toHaveBeenCalled();

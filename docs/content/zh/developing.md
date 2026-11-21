@@ -80,9 +80,9 @@ pnpm docs:preview     # 预览已构建的站点
 node --test tools/docs.test.mjs
 ```
 
-- 章节链接保持 `/Nowluma/` 基路径；本地用 `pnpm docs:dev` 或构建后的 HTTP 预览，不依赖 `file://` 执行交互。
+- 章节链接保持 `/NowLuma/` 基路径；本地用 `pnpm docs:dev` 或构建后的 HTTP 预览，不依赖 `file://` 执行交互。
 - 改标题时同时更新所有跨章链接；不要为了通过检查而放宽 `tools/check-docs.mjs`。
-- 界面标签以源码实际文案为准；英文文档解释同一功能，不另造界面文案。
+- 引用对应语言的真实界面标签；引导定位不依赖翻译文案。
 - 不写像素坐标、未经验证的截图或帧率承诺。
 
 ## 变更边界

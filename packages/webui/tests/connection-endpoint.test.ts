@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { connectionEndpoint } from '../src/lib/connection-endpoint';
+import { translator } from '../src/i18n';
 
 describe('connection endpoint copy', () => {
     const common = {
@@ -41,5 +42,16 @@ describe('connection endpoint copy', () => {
                 'http://localhost/',
             ),
         ).toBe('wss://bot.example/ws');
+    });
+
+    it('localizes an invalid-protocol error without relaxing protocol validation', () => {
+        expect(() =>
+            connectionEndpoint(
+                'httpClients',
+                { ...common, url: 'ftp://bot.example/' },
+                'http://localhost/',
+                translator('en'),
+            ),
+        ).toThrow('Invalid connection protocol');
     });
 });

@@ -20,6 +20,7 @@ import {
 } from '@/components/interior/live-activity';
 import '@/styles/action-feedback.css';
 import type { Activity } from '@/components/interior/live-activity';
+import { defaultTranslate, useT, type Translate } from '@/i18n';
 
 type ResultDetail<T> = string | ((result: T) => string | undefined);
 type ErrorDetail = string | ((error: unknown) => string);
@@ -121,7 +122,7 @@ function takeReloadNotice(): Omit<ActionNotice, 'id'> | null {
     }
 }
 
-export function actionErrorMessage(error: unknown): string {
+export function actionErrorMessage(error: unknown, t: Translate = defaultTranslate): string {
     if (error instanceof Error && error.message.trim()) {
         return error.message;
     }
@@ -130,7 +131,7 @@ export function actionErrorMessage(error: unknown): string {
         return error;
     }
 
-    return '未知错误';
+    return t('未知错误', 'Unknown error');
 }
 
 function resolveResultDetail<T>(
@@ -140,12 +141,16 @@ function resolveResultDetail<T>(
     return typeof detail === 'function' ? detail(result) : detail;
 }
 
-function resolveErrorDetail(detail: ErrorDetail | undefined, error: unknown): string {
+function resolveErrorDetail(
+    detail: ErrorDetail | undefined,
+    error: unknown,
+    t: Translate = defaultTranslate,
+): string {
     if (typeof detail === 'function') {
         return detail(error);
     }
 
-    return detail ?? actionErrorMessage(error);
+    return detail ?? actionErrorMessage(error, t);
 }
 
 export function publishActionResult(
@@ -174,6 +179,12 @@ export function ActionFeedbackProvider({ children }: { children: ReactNode }) {
     const noticeId = useRef(0);
     const [notices, setNotices] = useState<ActionNotice[]>([]);
     const [viewportHost, setViewportHost] = useState<HTMLElement | null>(null);
+    // Callbacks stay stable across locale switches; failures read the current translator.
+    const t = useT();
+    const translatorRef = useRef(t);
+    useEffect(() => {
+        translatorRef.current = t;
+    }, [t]);
 
     const pushNotice = useCallback((notice: Omit<ActionNotice, 'id'>) => {
         const next = { ...notice, id: ++noticeId.current };
@@ -268,7 +279,7 @@ export function ActionFeedbackProvider({ children }: { children: ReactNode }) {
                 return result;
             } catch (error) {
                 handle.fail(
-                    resolveErrorDetail(errorDetail, error),
+                    resolveErrorDetail(errorDetail, error, translatorRef.current),
                     errorTitle ? { title: errorTitle } : undefined,
                 );
                 throw error;
@@ -328,6 +339,7 @@ export function ActionFeedbackProvider({ children }: { children: ReactNode }) {
  */
 export function ActionFeedbackViewport() {
     const { activity, notices, removeNotice, dismiss, viewportHost } = useActionFeedback();
+    const t = useT();
     const runningActivity = activity?.phase === 'running' ? activity : null;
     const inline = viewportHost?.isConnected === true;
     // Move one owned portal container, not its React children: countdowns,
@@ -358,7 +370,7 @@ export function ActionFeedbackViewport() {
     const viewport = (
         <div
             role="region"
-            aria-label="操作通知"
+            aria-label={t('操作通知', 'Action notifications')}
             tabIndex={notices.length > 0 ? 0 : undefined}
             className="action-feedback-viewport pointer-events-none fixed z-[45] flex flex-col items-end gap-2"
             style={
@@ -385,8 +397,8 @@ export function ActionFeedbackViewport() {
             <LiveActivity
                 activity={runningActivity}
                 onDismiss={dismiss}
-                dismissLabel="关闭操作反馈"
-                label="正在执行的操作"
+                dismissLabel={t('关闭操作反馈', 'Dismiss action feedback')}
+                label={t('正在执行的操作', 'Running action')}
                 className="w-full"
             />
         </div>
@@ -402,6 +414,7 @@ function ActionNoticeBanner({
     onRemoved: () => void;
 }) {
     const reduced = useReducedMotionConfig() === true;
+    const t = useT();
     const [state, setState] = useState<BannerState>('open');
     const [deadline] = useState(() => Date.now() + RESULT_NOTICE_DURATION_MS);
     const [seconds, setSeconds] = useState(RESULT_NOTICE_DURATION_MS / 1_000);
@@ -447,8 +460,8 @@ function ActionNoticeBanner({
                         <CircleAlert className="size-4 text-destructive" />
                     )
                 }
-                dismissLabel="关闭通知"
-                dismissedMessage="操作通知已关闭。"
+                dismissLabel={t('关闭通知', 'Dismiss notification')}
+                dismissedMessage={t('操作通知已关闭。', 'Action notification dismissed.')}
                 className={`${notice.tone === 'success' ? 'border-success/25' : 'border-destructive/30'} ${reduced ? 'pb-4' : ''}`}
             />
             {visible && reduced ? (
@@ -457,7 +470,8 @@ function ActionNoticeBanner({
                     data-action-feedback-countdown=""
                     className="absolute bottom-1 right-3 text-[10px] tabular-nums text-muted-foreground"
                 >
-                    {Math.ceil(seconds)} 秒后关闭
+                    {Math.ceil(seconds)}
+                    {t(' 秒后关闭', 's until dismissal')}
                 </span>
             ) : visible ? (
                 <div
